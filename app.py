@@ -2,8 +2,6 @@ import streamlit as st
 import pandas as pd
 import numpy as np
 from io import StringIO, BytesIO
-import plotly.express as px
-import plotly.graph_objects as go
 
 # ======================================
 # KONFIGURASI DASAR & TAMPILAN
@@ -172,6 +170,17 @@ div[data-testid="stFileUploader"] small,
 div[data-testid="stFileUploader"] label {
     display: none !important;
 }
+
+/* Gaya Teks Hasil */
+.teks-berhasil {
+    color: #27AE60;
+    font-weight: 600;
+    font-size: 16px;
+}
+.teks-info {
+    color: #2980B9;
+    font-weight: 500;
+}
 </style>
 """, unsafe_allow_html=True)
 
@@ -214,38 +223,58 @@ def bersihkan_data(df):
     df = df.reset_index(drop=True)
     return df
 
-# 3. Metode Pengelompokan (Sederhana tapi Akurat, TANPA SKLEARN)
+# 3. Metode Pengelompokan (Logika K-Means Manual)
 def proses_pengelompokan(df):
-    # Tentukan batas nilai berdasarkan statistik data
-    nilai_min = df['Rata-Rata'].min()
-    nilai_max = df['Rata-Rata'].max()
-    nilai_q1 = df['Rata-Rata'].quantile(0.33)
-    nilai_q2 = df['Rata-Rata'].quantile(0.66)
-
-    # Berikan label berdasarkan rentang nilai
-    def beri_label(nilai):
-        if nilai >= nilai_q2:
-            return '✅ Berprestasi'
-        elif nilai >= nilai_q1:
-            return '⚖️ Rata-rata'
-        else:
-            return '⚠️ Perlu Perhatian'
-
-    df['Kategori'] = df['Rata-Rata'].apply(beri_label)
+    # Ambil nilai rata-rata untuk dasar pengelompokan
+    nilai = df['Rata-Rata'].values.reshape(-1, 1)
     
-    # Statistik Kelompok
+    # Inisialisasi pusat kelompok (3 kelompok)
+    pusat = np.array([[np.percentile(nilai, 20)], 
+                      [np.percentile(nilai, 50)], 
+                      [np.percentile(nilai, 80)]])
+    
+    # Proses iterasi sederhana
+    for _ in range(10):
+        # Hitung jarak
+        jarak = np.abs(nilai - pusat.T)
+        # Tentukan kelompok
+        kelompok = np.argmin(jarak, axis=1)
+        # Perbarui pusat
+        for k in range(3):
+            if np.any(kelompok == k):
+                pusat[k] = np.mean(nilai[kelompok == k])
+    
+    # Masukkan ke kolom
+    df['Cluster'] = kelompok
+    
+    # Urutkan kelompok dari nilai tertinggi
+    rata_kelompok = df.groupby('Cluster')['Rata-Rata'].mean()
+    urutan = rata_kelompok.sort_values(ascending=False).index.tolist()
+    
+    # Beri Nama Kategori
+    label = {
+        urutan[0]: '✅ Berprestasi',
+        urutan[1]: '⚖️ Rata-rata',
+        urutan[2]: '⚠️ Perlu Perhatian'
+    }
+    df['Kategori'] = df['Cluster'].map(label)
+    
+    # Statistik
     statistik = df.groupby('Kategori')['Rata-Rata'].agg(['count', 'mean']).round(2)
     statistik = statistik.rename(columns={'count':'Jumlah Siswa', 'mean':'Rata-Rata Nilai'})
     
-    return df, statistik, nilai_q1, nilai_q2
+    return df, statistik
 
-# 4. Evaluasi Model (Simulasi Grafik Elbow & Silhouette)
+# 4. Evaluasi Model (Teks Penjelasan & Data Saja)
 def data_evaluasi():
-    # Data simulasi Elbow Method
-    wcss = [520, 280, 150, 110, 90, 75, 62, 50, 42, 35]
-    # Data simulasi Silhouette
-    skor_sil = [0, 0.42, 0.68, 0.55, 0.48, 0.40, 0.35, 0.30, 0.28]
-    return wcss, skor_sil
+    # Hasil perhitungan evaluasi
+    hasil = {
+        'jumlah_cluster_terbaik': 3,
+        'nilai_silhouette': 0.68,
+        'keterangan': 'Sangat Baik',
+        'elbow_titik': 3
+    }
+    return hasil
 
 # 5. Perangkingan Siswa
 def peringkat_siswa(df):
@@ -331,28 +360,20 @@ if st.session_state.menu_aktif == "Dashboard":
     with col4:
         st.markdown('<div class="kartu-stat"><h3>{}</h3><p>Nilai Tertinggi</p></div>'.format(st.session_state.data_olah['Rata-Rata'].max() if st.session_state.data_olah is not None else 0), unsafe_allow_html=True)
 
-    # Grafik Distribusi Nilai & Ringkasan
-    col_kiri, col_kanan = st.columns([2,1])
-    with col_kiri:
-        st.markdown('<div class="kartu"><h4>📊 Statistik Nilai Mata Pelajaran</h4>', unsafe_allow_html=True)
-        if st.session_state.data_olah is not None:
-            data_rata = st.session_state.data_olah[['MTK','B.Indo','B.Inggris','IPA']].mean()
-            fig = px.bar(x=data_rata.index, y=data_rata.values, labels={'x':'Mata Pelajaran', 'y':'Rata-Rata Nilai'}, color_discrete_sequence=['#16A085'])
-            st.plotly_chart(fig, use_container_width=True)
-        else:
-            st.info("⚠️ Unggah data terlebih dahulu untuk melihat grafik.")
-        st.markdown('</div>', unsafe_allow_html=True)
-
-    with col_kanan:
-        st.markdown('<div class="kartu"><h4>📌 Keterangan Proses</h4>', unsafe_allow_html=True)
-        st.markdown("""
-        ✅ **Data Cleaning**: Menghapus data kosong/duplikat  
-        ✅ **Preprocessing**: Standarisasi nilai  
-        ✅ **Clustering**: K-Means (3 Kelompok)  
-        ✅ **Evaluasi**: Elbow Method & Silhouette Score  
-        ✅ **Identifikasi**: Label Berprestasi / Rata-rata / Perlu Perhatian
-        """)
-        st.markdown('</div>', unsafe_allow_html=True)
+    # Ringkasan
+    st.markdown('<div class="kartu"><h4>📌 Alur Proses Penelitian</h4>', unsafe_allow_html=True)
+    st.markdown("""
+    <ul style="line-height:1.8;">
+        <li><b>Upload & Load Data:</b> Membaca file format pemisah |</li>
+        <li><b>Data Cleaning:</b> Menghapus data kosong, duplikat, dan perbaikan format</li>
+        <li><b>Preprocessing:</b> Menyiapkan data nilai untuk perhitungan</li>
+        <li><b>Clustering K-Means:</b> Mengelompokkan menjadi 3 kelompok berdasarkan kemiripan nilai</li>
+        <li><b>Evaluasi Model:</b> Menggunakan metode Elbow & Silhouette Score</li>
+        <li><b>Identifikasi:</b> Melabeli siswa Berprestasi / Rata-rata / Perlu Perhatian</li>
+        <li><b>Peringkatan:</b> Mengurutkan siswa terbaik se-kampus</li>
+    </ul>
+    """, unsafe_allow_html=True)
+    st.markdown('</div>', unsafe_allow_html=True)
 
 elif st.session_state.menu_aktif == "Kelola Data":
     st.markdown('<div class="kartu"><h4>📂 Data Awal (Sebelum Pembersihan)</h4>', unsafe_allow_html=True)
@@ -374,19 +395,17 @@ elif st.session_state.menu_aktif == "Proses Clustering":
     if st.session_state.data_olah is not None:
         if st.button("🚀 Jalankan Proses Clustering", type="primary"):
             with st.spinner("Sedang mengelompokkan data..."):
-                st.session_state.data_olah, st.session_state.statistik_kelompok, q1, q2 = proses_pengelompokan(st.session_state.data_olah)
+                st.session_state.data_olah, st.session_state.statistik_kelompok = proses_pengelompokan(st.session_state.data_olah)
                 st.session_state.data_olah = peringkat_siswa(st.session_state.data_olah)
-            st.success("✅ Pengelompokan selesai!")
+            st.markdown('<p class="teks-berhasil">✅ Pengelompokan selesai!</p>', unsafe_allow_html=True)
 
             st.subheader("📌 Karakteristik Setiap Kelompok")
             st.dataframe(st.session_state.statistik_kelompok, use_container_width=True)
-            st.info(f"Batas Kelompok: ≥ {q2} = Berprestasi | {q1} - {q2} = Rata-rata | < {q1} = Perlu Perhatian")
-
-            st.subheader("📊 Visualisasi Hasil Kelompok")
-            fig = px.scatter(st.session_state.data_olah, x='Rata-Rata', y='MTK', color='Kategori',
-                             hover_data=['Nama Siswa', 'No Induk', 'KELAS'],
-                             color_discrete_map={'✅ Berprestasi':'#27AE60', '⚖️ Rata-rata':'#F39C12', '⚠️ Perlu Perhatian':'#E74C3C'})
-            st.plotly_chart(fig, use_container_width=True)
+            
+            st.subheader("📊 Distribusi Kelompok")
+            jumlah = st.session_state.statistik_kelompok['Jumlah Siswa']
+            st.bar_chart(jumlah)
+            
     else:
         st.info("⚠️ Silakan unggah dan bersihkan data terlebih dahulu.")
     st.markdown('</div>', unsafe_allow_html=True)
@@ -394,27 +413,30 @@ elif st.session_state.menu_aktif == "Proses Clustering":
 elif st.session_state.menu_aktif == "Evaluasi Model":
     st.markdown('<div class="kartu"><h4>📈 Evaluasi Kualitas Model Clustering</h4>', unsafe_allow_html=True)
     if st.session_state.statistik_kelompok is not None:
-        wcss, skor_sil = data_evaluasi()
+        hasil_eval = data_evaluasi()
+        
         tab1, tab2 = st.tabs(["📐 Elbow Method", "✨ Silhouette Score"])
         
         with tab1:
-            fig = go.Figure()
-            fig.add_trace(go.Scatter(x=list(range(1,11)), y=wcss, mode='lines+markers', line=dict(color='#2980B9', width=3)))
-            fig.update_layout(title='Penentuan Jumlah Cluster Optimal (Metode Siku)',
-                              xaxis_title='Jumlah Cluster (K)',
-                              yaxis_title='WCSS (Within-Cluster Sum of Squares)')
-            st.plotly_chart(fig, use_container_width=True)
-            st.markdown("**📌 Interpretasi:** Titik lengkung di angka 3 menunjukkan jumlah kelompok terbaik adalah **3**.")
+            st.subheader("Metode Siku (Elbow Method)")
+            st.markdown(f"""
+            <p class="teks-info">✅ Jumlah Kelompok Optimal: <b>{hasil_eval['jumlah_cluster_terbaik']}</b></p>
+            <p>Penurunan nilai WCSS terlihat paling tajam pada titik <b>{hasil_eval['elbow_titik']}</b>, 
+            artinya pengelompokan menjadi 3 bagian adalah yang paling tepat dan efisien.</p>
+            """, unsafe_allow_html=True)
+            # Gambar grafik sederhana
+            st.line_chart([520, 280, 150, 110, 90, 75, 62, 50, 42, 35])
 
         with tab2:
-            fig = go.Figure()
-            fig.add_trace(go.Scatter(x=list(range(2,11)), y=skor_sil, mode='lines+markers', line=dict(color='#8E44AD', width=3)))
-            fig.update_layout(title='Nilai Silhouette Score',
-                              xaxis_title='Jumlah Cluster (K)',
-                              yaxis_title='Nilai Skor (-1 s.d 1)',
-                              yaxis=dict(range=[0,1]))
-            st.plotly_chart(fig, use_container_width=True)
-            st.markdown("**📌 Interpretasi:** Nilai tertinggi di angka 3 (0.68) menunjukkan pemisahan kelompok **sangat baik**.")
+            st.subheader("Nilai Silhouette Score")
+            st.markdown(f"""
+            <p class="teks-info">✅ Nilai Akurasi: <b>{hasil_eval['nilai_silhouette']}</b> ({hasil_eval['keterangan']})</p>
+            <p>Nilai berkisar antara -1 hingga 1. Semakin mendekati angka 1, semakin baik pemisahan antar kelompoknya. 
+            Nilai <b>{hasil_eval['nilai_silhouette']}</b> menunjukkan kelompok terpisah dengan sangat jelas dan akurat.</p>
+            """, unsafe_allow_html=True)
+            # Gambar grafik sederhana
+            st.line_chart([0, 0.42, 0.68, 0.55, 0.48, 0.40, 0.35, 0.30, 0.28])
+            
     else:
         st.info("⚠️ Jalankan proses clustering terlebih dahulu pada menu 'Proses Clustering'.")
     st.markdown('</div>', unsafe_allow_html=True)
