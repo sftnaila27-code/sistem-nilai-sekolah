@@ -4,108 +4,130 @@ from io import BytesIO
 
 # KONFIGURASI
 st.set_page_config(page_title="Nilai Sekolah", page_icon="🏫", layout="wide")
+st.markdown("""<style>#MainMenu {visibility: hidden;} footer {visibility: hidden;}</style>""", unsafe_allow_html=True)
 
-# FUNGSI UTAMA
-def baca_dan_proses(file_terpilih):
-    if not file_terpilih:
+# FUNGSI BACA FILE
+def proses_file(berkas):
+    try:
+        # CARA BACA YANG DIPERBAIKI
+        df = pd.read_excel(
+            berkas,
+            engine='openpyxl',
+            header=0
+        )
+
+        # SAMAKAN NAMA KOLOM
+        df.columns = ['No', 'Nama Siswa', 'No Induk', 'MTK', 'B.Indo', 'B.Inggris', 'IPA', 'Rata-Rata']
+
+        # UBAH KE ANGKA
+        kolom_angka = ['MTK', 'B.Indo', 'B.Inggris', 'IPA', 'Rata-Rata']
+        for kol in kolom_angka:
+            df[kol] = pd.to_numeric(df[kol], errors='coerce')
+
+        # TAMBAH KELAS
+        nama_kelas = berkas.name.split('.')[0].upper()
+        df['KELAS'] = nama_kelas
+
+        return df
+
+    except Exception as e:
+        st.error(f"❌ GAGAL BACA: {berkas.name}")
+        st.error(f"Pesan: {str(e)}")
         return None
 
-    semua_data = []
-    with st.spinner("🔄 Memproses Data..."):
-        for f in file_terpilih:
-            try:
-                # BACA FILE EXCEL ASLI
-                df = pd.read_excel(f, engine='openpyxl')
-                
-                # PAKSA UBAH NAMA KOLOM SESUAI URUTAN
-                df.columns = ['No', 'Nama Siswa', 'No Induk', 'MTK', 'B.Indo', 'B.Inggris', 'IPA', 'Rata-Rata']
-                
-                # UBAH ANGKA
-                for kol in ['MTK', 'B.Indo', 'B.Inggris', 'IPA', 'Rata-Rata']:
-                    df[kol] = pd.to_numeric(df[kol], errors='coerce')
-                
-                # TAMBAH KELAS
-                df['KELAS'] = f.name.split('.')[0].upper()
-                semua_data.append(df)
+# PENGOLAHAN UTAMA
+def olah_data(daftar_file):
+    semua = []
+    if not daftar_file:
+        return None
 
-            except Exception as e:
-                st.error(f"❌ GAGAL: {f.name} -> {str(e)}")
-                st.info("⚠️ Pastikan ini File Excel Asli, bukan teks biasa!")
-                return None
+    for f in daftar_file:
+        hasil = proses_file(f)
+        if hasil is None:
+            return None
+        semua.append(hasil)
+
+    if not semua:
+        return None
 
     # GABUNGKAN
-    gabung = pd.concat(semua_data, ignore_index=True)
+    gabung = pd.concat(semua, ignore_index=True)
 
-    # HITUNG REKAP KELAS
-    rekap = gabung.groupby('KELAS')[['MTK','B.Indo','B.Inggris','IPA','Rata-Rata']].mean().round(2).reset_index()
-    rekap = rekap.sort_values('Rata-Rata', ascending=False)
-    rekap = rekap.rename(columns={'Rata-Rata':'RATA-RATA KELAS'})
+    # 1. REKAP KELAS
+    rekap_kelas = gabung.groupby('KELAS')[['MTK','B.Indo','B.Inggris','IPA','Rata-Rata']].mean().round(2).reset_index()
+    rekap_kelas = rekap_kelas.sort_values('Rata-Rata', ascending=False)
+    rekap_kelas = rekap_kelas.rename(columns={
+        'MTK':'Matematika', 'B.Indo':'Bahasa Indonesia', 'B.Inggris':'Bahasa Inggris', 'Rata-Rata':'Rata-Rata Kelas'
+    })
 
-    # HITUNG PERINGKAT SEKOLAH
-    gabung['PERINGKAT SEKOLAH'] = gabung['Rata-Rata'].rank(ascending=False, method='min').astype(int)
-    gabung = gabung.sort_values('PERINGKAT SEKOLAH').reset_index(drop=True)
+    # 2. PERINGKAT SEKOLAH
+    gabung['PERINGKAT'] = gabung['Rata-Rata'].rank(ascending=False, method='dense').astype(int)
+    peringkat_sekolah = gabung.sort_values('PERINGKAT').reset_index(drop=True)
 
-    # HITUNG PERINGKAT KELAS
-    gabung['PERINGKAT KELAS'] = gabung.groupby('KELAS')['Rata-Rata'].rank(ascending=False, method='min').astype(int)
+    # 3. PERINGKAT KELAS
+    gabung['PERINGKAT_KELAS'] = gabung.groupby('KELAS')['Rata-Rata'].rank(ascending=False, method='dense').astype(int)
+    peringkat_kelas = gabung.sort_values(['KELAS','PERINGKAT_KELAS'])
 
-    # BUAT FILE EXCEL HASIL
-    def simpan():
-        output = BytesIO()
-        with pd.ExcelWriter(output, engine='xlsxwriter') as w:
-            gabung.to_excel(w, 'DATA LENGKAP', False)
-            rekap.to_excel(w, 'REKAP KELAS', False)
-        return output.getvalue()
+    # 4. BUAT FILE HASIL
+    def unduh_excel():
+        keluaran = BytesIO()
+        with pd.ExcelWriter(keluaran, engine='xlsxwriter') as w:
+            gabung.to_excel(w, 'Data Lengkap', False)
+            rekap_kelas.to_excel(w, 'Rekap Kelas', False)
+            peringkat_sekolah.to_excel(w, 'Peringkat Sekolah', False)
+        return keluaran.getvalue()
 
-    return gabung, rekap, simpan()
+    return gabung, rekap_kelas, peringkat_sekolah, unduh_excel()
 
 # ======================================
 # TAMPILAN WEB
 # ======================================
-st.title("🏫 SISTEM PENGOLAHAN NILAI SEKOLAH")
+st.title("🏫 SISTEM PENGOLAHAN NILAI SISWA")
+st.markdown("---")
 
 # MENU SAMPING
 with st.sidebar:
     st.header("📝 CARA PAKAI")
-    st.code("""
-    1. Buka file Anda di Excel
-    2. Pastikan Kolom: No | Nama Siswa | No Induk | MTK | B.Indo | B.Inggris | IPA | Rata-Rata
-    3. Simpan sebagai .xlsx (File Excel Asli)
-    4. Nama: 7a.xlsx, 7b.xlsx, dst
+    st.success("""
+    ✅ Pastikan File **Excel Asli** (.xlsx)
+    ✅ Urutan Kolom:
+    `No | Nama Siswa | No Induk | MTK | B.Indo | B.Inggris | IPA | Rata-Rata`
+    ✅ Nama File: `7a.xlsx`, `7b.xlsx`, dst
     """)
-    st.header("📤 UNGGAH FILE EXCEL")
-    file_masuk = st.file_uploader("Pilih File", type="xlsx", accept_multiple_files=True)
+    st.header("📤 UNGGAH FILE")
+    masuk = st.file_uploader("Pilih File Excel", type="xlsx", accept_multiple_files=True)
 
 # PROSES
-hasil = baca_dan_proses(file_masuk)
+hasil = olah_data(masuk)
 
 if hasil:
-    df_data, df_rekap, file_unduh = hasil
-    st.success("✅ BERHASIL DIPROSES!")
+    data, rekap, peringkat, berkas = hasil
+    st.success("✅ FILE BERHASIL DIBACA & DIPROSES!")
 
-    tab1, tab2, tab3 = st.tabs(["📊 Rekap Kelas", "🏆 Peringkat Sekolah", "📋 Data Lengkap"])
+    tab1, tab2, tab3 = st.tabs(["🏫 Rekap Kelas", "🏆 Peringkat Sekolah", "📋 Data Lengkap"])
 
     with tab1:
-        st.subheader("Rekapitulasi Nilai Rata-Rata")
-        st.dataframe(df_rekap, use_container_width=True)
+        st.subheader("Tabel Rekapitulasi Nilai")
+        st.dataframe(rekap, use_container_width=True, hide_index=True)
 
     with tab2:
         st.subheader("Daftar Urutan Nilai Siswa")
-        st.dataframe(df_data[['PERINGKAT SEKOLAH','KELAS','PERINGKAT KELAS','Nama Siswa','No Induk','MTK','B.Indo','B.Inggris','IPA','Rata-Rata']], use_container_width=True)
+        st.dataframe(peringkat[['PERINGKAT','KELAS','Nama Siswa','No Induk','MTK','B.Indo','B.Inggris','IPA','Rata-Rata']], use_container_width=True, hide_index=True)
 
     with tab3:
         st.subheader("Seluruh Data Siswa")
-        st.dataframe(df_data, use_container_width=True)
+        st.dataframe(data, use_container_width=True, hide_index=True)
 
     # TOMBOL UNDUH
     st.download_button(
         label="📥 Unduh Semua Hasil (.xlsx)",
-        data=file_unduh,
-        file_name="HASIL_OLAH_NILAI.xlsx",
+        data=berkas,
+        file_name="HASIL_OLAH_NILAI_SEKOLAH.xlsx",
         mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
         type="primary",
         use_container_width=True
     )
 
 else:
-    st.warning("⬅️ Silakan unggah File Excel (.xlsx) yang BENAR terlebih dahulu.")
-    st.info("⚠️ **PENTING:** File harus disimpan dari Microsoft Excel, bukan file teks biasa yang diganti nama jadi .xlsx.")
+    st.warning("⬅️ Silakan unggah file Excel yang BENAR di menu samping.")
+    st.info("⚠️ **Wajib:** File harus disimpan dari Microsoft Excel, bukan file teks biasa.")
