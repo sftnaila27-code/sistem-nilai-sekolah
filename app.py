@@ -12,7 +12,7 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# CSS KUSTOM - Tampilan Bersih, Rapi & Tombol Berfungsi
+# CSS KUSTOM - PENGHAPUSAN TEKS BERANTAKAN & TAMPILAN BERSIH
 st.markdown("""
 <style>
 /* ===== DASAR & WARNA ===== */
@@ -37,12 +37,12 @@ st.markdown("""
     color: var(--teks);
 }
 
-/* ===== MENU SAMPING - DIRAPIHKAN PENUH ===== */
+/* ===== MENU SAMPING - BERSIH PENUH ===== */
 [data-testid="stSidebar"] {
     background-color: var(--putih);
     background: linear-gradient(180deg, #ffffff 0%, #f8f0fc 100%);
     border-right: 1px solid #f0f0f0;
-    padding: 25px 15px !important;
+    padding: 20px 12px !important;
     box-shadow: 2px 0 10px rgba(0,0,0,0.03);
 }
 
@@ -52,7 +52,7 @@ st.markdown("""
     font-weight: 700;
     color: var(--ungu-lembut);
     text-align: left;
-    margin-bottom: 35px;
+    margin-bottom: 25px;
     padding: 10px 12px;
     display: flex;
     align-items: center;
@@ -61,70 +61,99 @@ st.markdown("""
     border-radius: 12px;
 }
 
-/* Item Menu Navigasi - AKTIF & RAPI */
-.nav-item {
-    padding: 12px 15px;
-    margin: 8px 0;
-    border-radius: 12px;
-    cursor: pointer;
-    transition: all 0.2s ease;
-    font-weight: 500;
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    color: var(--teks);
-    text-decoration: none;
-    font-size: 15px;
-    border: none;
-    background: transparent;
-    width: 100%;
-    text-align: left;
+/* Item Menu Navigasi - TOMBOL BERFUNGSI */
+div.stButton > button {
+    width: 100% !important;
+    padding: 12px 15px !important;
+    margin: 6px 0 !important;
+    border-radius: 12px !important;
+    border: none !important;
+    background: transparent !important;
+    color: var(--teks) !important;
+    font-weight: 500 !important;
+    font-size: 15px !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: flex-start !important;
+    gap: 10px !important;
+    box-shadow: none !important;
+    transition: all 0.2s ease !important;
 }
-.nav-item:hover {
-    background-color: rgba(107, 114, 225, 0.1);
-    color: var(--ungu-lembut);
+div.stButton > button:hover {
+    background-color: rgba(107, 114, 225, 0.1) !important;
+    color: var(--ungu-lembut) !important;
+    transform: none !important;
 }
-.nav-item.active {
-    background: linear-gradient(90deg, var(--ungu-lembut) 0%, #8B5CF6 100%);
-    color: white;
-    box-shadow: 0 4px 12px rgba(107, 114, 225, 0.2);
+div.stButton > button.active {
+    background: linear-gradient(90deg, var(--ungu-lembut) 0%, #8B5CF6 100%) !important;
+    color: white !important;
+    box-shadow: 0 4px 12px rgba(107, 114, 225, 0.2) !important;
 }
 
-/* Pembatas Garis */
+/* Garis Pembatas */
 .divider {
     height: 1px;
     background-color: var(--abu-garis);
-    margin: 20px 0;
+    margin: 18px 0 !important;
 }
 
 /* Kotak Konten di Sidebar */
 .sidebar-card {
     background: var(--putih);
-    padding: 18px;
-    border-radius: 12px;
-    box-shadow: 0 2px 8px rgba(0,0,0,0.05);
-    margin: 15px 0;
-    border: 1px solid #f3f4f6;
+    padding: 15px !important;
+    border-radius: 12px !important;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.05) !important;
+    margin: 12px 0 !important;
+    border: 1px solid #f3f4f6 !important;
 }
 .sidebar-card h4 {
-    margin: 0 0 10px 0;
+    margin: 0 0 8px 0 !important;
     color: var(--ungu-lembut);
-    font-size: 16px;
-    display: flex;
-    align-items: center;
-    gap: 6px;
+    font-size: 15px !important;
+    display: flex !important;
+    align-items: center !important;
+    gap: 6px !important;
 }
 
-/* Sembunyikan tulisan bawaan yang mengganggu */
-div[data-testid="stMarkdown"] p {
-    margin: 0;
-    padding: 0;
-}
-.stFileUploader label {
+/* ====================================== */
+/* BAGIAN PENTING: PENGHAPUSAN TEKS YANG MENGGANGGU */
+/* ====================================== */
+
+/* Sembunyikan LABEL, DESKRIPSI, DAN TEKS TAMBAHAN pada komponen */
+div[data-testid="stMarkdownContainer"] > p,
+div[data-testid="stFileUploader"] small,
+div[data-testid="stFileUploader"] label,
+div.uploadedFile > div:first-child,
+div[data-testid="stMarkdown"] {
     display: none !important;
+    visibility: hidden !important;
+    height: 0px !important;
+    margin: 0px !important;
+    padding: 0px !important;
+    overflow: hidden !important;
 }
-.stFileUploader {
-    margin-top: 5px !important;
+
+/* Khusus untuk kotak upload: TAMPILKAN HANYA TOMBOLNYA SAJA */
+div[data-testid="stFileUploader"] {
+    display: block !important;
+    visibility: visible !important;
+    background: #f9fafb !important;
+    border: 1px dashed #ccc !important;
+    border-radius: 8px !important;
+    padding: 8px !important;
+    margin: 0 !important;
+    min-height: auto !important;
+}
+div[data-testid="stFileUploader"] > div:first-child {
+    display: block !important;
+    visibility: visible !important;
+    height: auto !important;
+}
+
+/* Hilangkan spasi kosong akibat teks yang dihapus */
+div.stBlockBox {
+    margin: 0 !important;
+    padding: 0 !important;
 }
 
 /* ===== KARTU KONTEN UTAMA ===== */
@@ -142,38 +171,6 @@ div[data-testid="stMarkdown"] p {
     box-shadow: 0 12px 25px rgba(0,0,0,0.12);
 }
 
-.card-header {
-    font-size: 18px;
-    font-weight: 600;
-    margin-bottom: 10px;
-}
-
-/* ===== TOMBOL & KOMPONEN ===== */
-.stButton>button {
-    background: linear-gradient(90deg, var(--ungu-lembut) 0%, #8B5CF6 100%);
-    color: white;
-    border-radius: 12px;
-    border: none;
-    padding: 10px 20px;
-    font-weight: 500;
-    box-shadow: 0 4px 12px rgba(107, 114, 225, 0.3);
-    width: 100%;
-}
-.stButton>button:hover {
-    transform: scale(1.02);
-    box-shadow: 0 6px 15px rgba(107, 114, 225, 0.4);
-}
-
-.stDownloadButton>button {
-    background: linear-gradient(90deg, var(--hijau-lembut) 0%, #10B981 100%);
-    color: white;
-    border-radius: 12px;
-    border: none;
-    padding: 10px 20px;
-    font-weight: 500;
-    box-shadow: 0 4px 12px rgba(46, 204, 113, 0.3);
-}
-
 /* ===== HEADER UTAMA ===== */
 .header-banner {
     background: linear-gradient(90deg, var(--ungu-lembut) 0%, var(--biru-lembut) 100%);
@@ -184,9 +181,15 @@ div[data-testid="stMarkdown"] p {
     box-shadow: 0 8px 20px rgba(107, 114, 225, 0.2);
 }
 
-/* ===== SEMBUNYIKAN ELEMEN BAWAAAN ===== */
-#MainMenu, footer, header {visibility: hidden;}
-.css-18e3th9 {padding-top: 1rem;}
+/* ===== SEMBUNYIKAN ELEMEN BAWAAAN STREAMLIT ===== */
+#MainMenu, footer, header, .stDeployButton, [data-testid="stHeader"] {
+    visibility: hidden !important;
+    display: none !important;
+}
+.css-18e3th9, .css-1outpf7 {
+    padding-top: 0 !important;
+    padding-bottom: 0 !important;
+}
 </style>
 """, unsafe_allow_html=True)
 
@@ -213,7 +216,7 @@ def baca_file_format_anda(berkas):
         data['KELAS'] = nama_kelas
         return data
     except Exception as e:
-        st.error(f"❌ Gagal memproses: {berkas.name}")
+        st.error(f"❌ Gagal: {berkas.name}")
         return None
 
 def proses_semua_file(daftar_file):
@@ -227,7 +230,6 @@ def proses_semua_file(daftar_file):
     
     gabung = pd.concat(semua_data, ignore_index=True)
     
-    # Analisis
     rekap_kelas = gabung.groupby('KELAS')[['MTK','B.Indo','B.Inggris','IPA','Rata-Rata']].mean().round(2).reset_index()
     rekap_kelas = rekap_kelas.sort_values('Rata-Rata', ascending=False)
     rekap_kelas = rekap_kelas.rename(columns={'MTK':'Matematika','B.Indo':'Bahasa Indonesia','B.Inggris':'Bahasa Inggris','Rata-Rata':'Rata-Rata Kelas'})
@@ -238,7 +240,6 @@ def proses_semua_file(daftar_file):
     gabung['PERINGKAT KELAS'] = gabung.groupby('KELAS')['Rata-Rata'].rank(ascending=False, method='dense').astype(int)
     peringkat_kelas = gabung.sort_values(['KELAS','PERINGKAT KELAS'])
 
-    # Simpan Excel
     def buat_unduh():
         output = BytesIO()
         with pd.ExcelWriter(output, engine='xlsxwriter') as w:
@@ -258,109 +259,106 @@ if 'menu_aktif' not in st.session_state:
 # TAMPILAN UTAMA
 # ======================================
 
-# ==== MENU SAMPING - SUDAH DIBERSIHKAN & TOMBOL BERFUNGSI ====
+# ==== MENU SAMPING - TOTAL BERSIH ====
 with st.sidebar:
     # Judul
     st.markdown('<div class="sidebar-title">🏫 Nilai Sekolah</div>', unsafe_allow_html=True)
     
-    # TOMBOL NAVIGASI - SUDAH BERFUNGSI
-    if st.button("📊 Beranda", key="btn_beranda", help="Halaman Utama"):
-        st.session_state.menu_aktif = "Beranda"
-    if st.button("📋 Data Nilai", key="btn_data", help="Lihat Data Lengkap"):
-        st.session_state.menu_aktif = "Data Nilai"
-    if st.button("🏆 Peringkat", key="btn_peringkat", help="Lihat Peringkat"):
-        st.session_state.menu_aktif = "Peringkat"
-    if st.button("⚙️ Pengaturan", key="btn_pengaturan", help="Pengaturan Aplikasi"):
-        st.session_state.menu_aktif = "Pengaturan"
+    # TOMBOL NAVIGASI BERFUNGSI
+    col1, col2, col3, col4 = st.columns(1)
+    with col1:
+        if st.button("📊 Beranda", key="b1"):
+            st.session_state.menu_aktif = "Beranda"
+    with col2:
+        if st.button("📋 Data Nilai", key="b2"):
+            st.session_state.menu_aktif = "Data Nilai"
+    with col3:
+        if st.button("🏆 Peringkat", key="b3"):
+            st.session_state.menu_aktif = "Peringkat"
+    with col4:
+        if st.button("⚙️ Pengaturan", key="b4"):
+            st.session_state.menu_aktif = "Pengaturan"
 
-    # Tandai tombol aktif secara visual
-    st.markdown(f"""<style>.stButton>button:nth-child(1) {{ {'background: linear-gradient(90deg, #6B72E1 0%, #8B5CF6 100%); color: white;' if st.session_state.menu_aktif == 'Beranda' else ''} }} .stButton>button:nth-child(2) {{ {'background: linear-gradient(90deg, #6B72E1 0%, #8B5CF6 100%); color: white;' if st.session_state.menu_aktif == 'Data Nilai' else ''} }} .stButton>button:nth-child(3) {{ {'background: linear-gradient(90deg, #6B72E1 0%, #8B5CF6 100%); color: white;' if st.session_state.menu_aktif == 'Peringkat' else ''} }} .stButton>button:nth-child(4) {{ {'background: linear-gradient(90deg, #6B72E1 0%, #8B5CF6 100%); color: white;' if st.session_state.menu_aktif == 'Pengaturan' else ''} }}</style>""", unsafe_allow_html=True)
+    # Tandai tombol aktif
+    st.markdown(f"""<script>
+    setTimeout(function(){{
+        let btns = document.querySelectorAll('[data-testid="stSidebar"] button');
+        btns.forEach(b => b.classList.remove('active'));
+        if(btns[0] && '{st.session_state.menu_aktif}' === 'Beranda') btns[0].classList.add('active');
+        if(btns[1] && '{st.session_state.menu_aktif}' === 'Data Nilai') btns[1].classList.add('active');
+        if(btns[2] && '{st.session_state.menu_aktif}' === 'Peringkat') btns[2].classList.add('active');
+        if(btns[3] && '{st.session_state.menu_aktif}' === 'Pengaturan') btns[3].classList.add('active');
+    }}, 100);
+    </script>""", unsafe_allow_html=True)
     
     # Garis Pembatas
     st.markdown('<div class="divider"></div>', unsafe_allow_html=True)
 
-    # Kotak Panduan - TEKS DIRAPIHKAN & DIBERSIHKAN
-    st.markdown('<div class="sidebar-card">', unsafe_allow_html=True)
-    st.markdown('<h4>📝 Panduan</h4>', unsafe_allow_html=True)
-    st.markdown("✅ Format: `|No|Nama Siswa|...|`")
-    st.markdown("✅ Nama: `7a.xlsx`, `8b.xlsx`")
-    st.markdown('</div>', unsafe_allow_html=True)
+    # Kotak Panduan - HANYA TULISAN PENTING
+    st.markdown('<div class="sidebar-card"><h4>📝 Panduan</h4><span>Format: |No|Nama|...| <br>Nama: 7a.xlsx</span></div>', unsafe_allow_html=True)
 
-    # Kotak UNGGAH BERKAS - TETAP ADA, BERSIH, TIDAK ADA TEKS ANEH
-    st.markdown('<div class="sidebar-card">', unsafe_allow_html=True)
-    st.markdown('<h4>📤 Unggah Berkas</h4>', unsafe_allow_html=True)
-    # Teks yang berantakan DIHAPUS, hanya tombol unggah yang tampil
+    # KOTAK UNGGAH BERKAS - TANPA TEKS BERANTAKAN, HANYA TOMBOL
+    st.markdown('<div class="sidebar-card"><h4>📤 Unggah Berkas</h4>', unsafe_allow_html=True)
     berkas_masuk = st.file_uploader(
         "", 
         type=["xlsx", "txt"], 
         accept_multiple_files=True,
-        label_visibility="collapsed"
+        label_visibility="hidden"
     )
     st.markdown('</div>', unsafe_allow_html=True)
 
     # Kotak Info
-    st.markdown('<div class="sidebar-card">', unsafe_allow_html=True)
-    st.markdown('<h4>ℹ️ Info</h4>', unsafe_allow_html=True)
-    st.markdown("Sistem otomatis hitung rata-rata & peringkat.")
-    st.markdown('</div>', unsafe_allow_html=True)
+    st.markdown('<div class="sidebar-card"><h4>ℹ️ Info</h4><span>Otomatis hitung rata-rata & peringkat.</span></div>', unsafe_allow_html=True)
 
-# ==== KONTEN UTAMA - BERUBAH SESUAI MENU YANG DIKLIK ====
-
-# Proses Data (Dijalankan di semua halaman)
+# ==== KONTEN UTAMA ====
 hasil = proses_semua_file(berkas_masuk)
 
 if st.session_state.menu_aktif == "Beranda":
-    # Banner Atas
     st.markdown("""
     <div class="header-banner">
         <h1 style="margin:0; font-size:28px;">📊 Sistem Pengolahan Nilai Siswa</h1>
-        <p style="margin:5px 0 0 0; opacity:0.9;">Kelola, hitung, dan rangking nilai dengan tampilan modern & mudah digunakan</p>
+        <p style="margin:5px 0 0 0; opacity:0.9;">Kelola, hitung, dan rangking nilai sekolah</p>
     </div>
     """, unsafe_allow_html=True)
 
     if hasil:
-        data_mentah, rekap, peringkat_s, peringkat_k, file_unduh = hasil
-        # Kartu Ringkasan
+        data_mentah, rekap, _, _, _ = hasil
         col1, col2, col3, col4 = st.columns(4)
         with col1:
-            st.markdown('<div class="card"><div class="card-header" style="color:#6B72E1;">👥 Total Siswa</div><h2 style="margin:0;">{}</h2></div>'.format(len(data_mentah)), unsafe_allow_html=True)
+            st.markdown('<div class="card"><div style="color:#6B72E1;">👥 Total Siswa</div><h2>{}</h2></div>'.format(len(data_mentah)), unsafe_allow_html=True)
         with col2:
-            st.markdown('<div class="card"><div class="card-header" style="color:#36C5F0;">🏫 Jumlah Kelas</div><h2 style="margin:0;">{}</h2></div>'.format(data_mentah['KELAS'].nunique()), unsafe_allow_html=True)
+            st.markdown('<div class="card"><div style="color:#36C5F0;">🏫 Jumlah Kelas</div><h2>{}</h2></div>'.format(data_mentah['KELAS'].nunique()), unsafe_allow_html=True)
         with col3:
-            st.markdown('<div class="card"><div class="card-header" style="color:#2ECC71;">📈 Rata-Rata</div><h2 style="margin:0;">{}</h2></div>'.format(round(data_mentah['Rata-Rata'].mean(),2)), unsafe_allow_html=True)
+            st.markdown('<div class="card"><div style="color:#2ECC71;">📈 Rata-Rata</div><h2>{}</h2></div>'.format(round(data_mentah['Rata-Rata'].mean(),2)), unsafe_allow_html=True)
         with col4:
-            st.markdown('<div class="card"><div class="card-header" style="color:#F06292;">🏆 Nilai Tertinggi</div><h2 style="margin:0;">{}</h2></div>'.format(data_mentah['Rata-Rata'].max()), unsafe_allow_html=True)
+            st.markdown('<div class="card"><div style="color:#F06292;">🏆 Nilai Tertinggi</div><h2>{}</h2></div>'.format(data_mentah['Rata-Rata'].max()), unsafe_allow_html=True)
 
-        # Rekap Kelas
         st.markdown('<div class="card">', unsafe_allow_html=True)
         st.subheader("📋 Rekapitulasi Nilai Per Kelas")
         st.dataframe(rekap, use_container_width=True, hide_index=True)
         st.markdown('</div>', unsafe_allow_html=True)
 
     else:
-        # Tampilan Awal Bersih
         st.markdown("""
         <div class="card" style="text-align:center; padding:50px 20px;">
             <img src="https://cdn-icons-png.flaticon.com/512/3201/3201355.png" width="150">
             <h2 style="color:#6B72E1; margin-top:20px;">Selamat Datang</h2>
-            <p style="font-size:16px; max-width:500px; margin:10px auto;">
-                Unggah file nilai Anda lewat tombol di samping kiri untuk memulai.
-            </p>
+            <p>Unggah file nilai Anda lewat tombol di samping kiri.</p>
         </div>
         """, unsafe_allow_html=True)
 
 elif st.session_state.menu_aktif == "Data Nilai":
-    st.markdown('<div class="header-banner"><h1 style="margin:0;">📋 Data Lengkap Siswa</h1></div>', unsafe_allow_html=True)
+    st.markdown('<div class="header-banner"><h1>📋 Data Lengkap Siswa</h1></div>', unsafe_allow_html=True)
     if hasil:
         data_mentah, _, _, _, _ = hasil
         st.markdown('<div class="card">', unsafe_allow_html=True)
         st.dataframe(data_mentah, use_container_width=True, hide_index=True)
         st.markdown('</div>', unsafe_allow_html=True)
     else:
-        st.info("⚠️ Silakan unggah file terlebih dahulu untuk melihat data.")
+        st.info("⚠️ Silakan unggah file terlebih dahulu.")
 
 elif st.session_state.menu_aktif == "Peringkat":
-    st.markdown('<div class="header-banner"><h1 style="margin:0;">🏆 Daftar Peringkat Nilai</h1></div>', unsafe_allow_html=True)
+    st.markdown('<div class="header-banner"><h1>🏆 Daftar Peringkat Nilai</h1></div>', unsafe_allow_html=True)
     if hasil:
         _, _, peringkat_s, peringkat_k, file_unduh = hasil
         
@@ -372,15 +370,14 @@ elif st.session_state.menu_aktif == "Peringkat":
 
         with tab2:
             st.markdown('<div class="card">', unsafe_allow_html=True)
-            pilih_kelas = st.selectbox("Pilih Kelas", sorted(peringkat_k['KELAS'].unique()))
+            pilih_kelas = st.selectbox("", sorted(peringkat_k['KELAS'].unique()))
             tampil = peringkat_k[peringkat_k['KELAS'] == pilih_kelas]
             st.dataframe(tampil[['PERINGKAT KELAS','Nama Siswa','No Induk','Rata-Rata']], use_container_width=True, hide_index=True)
             st.markdown('</div>', unsafe_allow_html=True)
 
-        # Tombol Unduh
         st.markdown('<div class="card">', unsafe_allow_html=True)
         st.download_button(
-            label="📥 Unduh Semua Hasil ke Excel",
+            label="📥 Unduh Hasil Excel",
             data=file_unduh,
             file_name="HASIL_OLAH_NILAI_SEKOLAH.xlsx",
             mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
@@ -388,8 +385,8 @@ elif st.session_state.menu_aktif == "Peringkat":
         )
         st.markdown('</div>', unsafe_allow_html=True)
     else:
-        st.info("⚠️ Silakan unggah file terlebih dahulu untuk melihat peringkat.")
+        st.info("⚠️ Silakan unggah file terlebih dahulu.")
 
 elif st.session_state.menu_aktif == "Pengaturan":
-    st.markdown('<div class="header-banner"><h1 style="margin:0;">⚙️ Pengaturan Aplikasi</h1></div>', unsafe_allow_html=True)
-    st.markdown('<div class="card"><p>Pengaturan tampilan dan sistem akan ada di sini.</p></div>', unsafe_allow_html=True)
+    st.markdown('<div class="header-banner"><h1>⚙️ Pengaturan Aplikasi</h1></div>', unsafe_allow_html=True)
+    st.markdown('<div class="card"><p>Pengaturan sistem tampilan.</p></div>', unsafe_allow_html=True)
