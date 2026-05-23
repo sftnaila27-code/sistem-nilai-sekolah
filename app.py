@@ -12,7 +12,7 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# CSS KUSTOM - PENGHAPUSAN TEKS BERANTAKAN & TAMPILAN BERSIH
+# CSS KUSTOM - BERSIH, RAPI, TANPA TEKS ANEH
 st.markdown("""
 <style>
 /* ===== DASAR & WARNA ===== */
@@ -37,7 +37,7 @@ st.markdown("""
     color: var(--teks);
 }
 
-/* ===== MENU SAMPING - BERSIH PENUH ===== */
+/* ===== MENU SAMPING ===== */
 [data-testid="stSidebar"] {
     background-color: var(--putih);
     background: linear-gradient(180deg, #ffffff 0%, #f8f0fc 100%);
@@ -46,7 +46,6 @@ st.markdown("""
     box-shadow: 2px 0 10px rgba(0,0,0,0.03);
 }
 
-/* Judul Utama Sidebar */
 .sidebar-title {
     font-size: 22px;
     font-weight: 700;
@@ -61,7 +60,7 @@ st.markdown("""
     border-radius: 12px;
 }
 
-/* Item Menu Navigasi - TOMBOL BERFUNGSI */
+/* Tombol Navigasi */
 div.stButton > button {
     width: 100% !important;
     padding: 12px 15px !important;
@@ -82,22 +81,20 @@ div.stButton > button {
 div.stButton > button:hover {
     background-color: rgba(107, 114, 225, 0.1) !important;
     color: var(--ungu-lembut) !important;
-    transform: none !important;
 }
-div.stButton > button.active {
+.active {
     background: linear-gradient(90deg, var(--ungu-lembut) 0%, #8B5CF6 100%) !important;
     color: white !important;
     box-shadow: 0 4px 12px rgba(107, 114, 225, 0.2) !important;
 }
 
-/* Garis Pembatas */
 .divider {
     height: 1px;
     background-color: var(--abu-garis);
     margin: 18px 0 !important;
 }
 
-/* Kotak Konten di Sidebar */
+/* Kotak Kartu Samping */
 .sidebar-card {
     background: var(--putih);
     padding: 15px !important;
@@ -116,10 +113,8 @@ div.stButton > button.active {
 }
 
 /* ====================================== */
-/* BAGIAN PENTING: PENGHAPUSAN TEKS YANG MENGGANGGU */
+/* BAGIAN UTAMA: HAPUS TEKS BERANTAKAN */
 /* ====================================== */
-
-/* Sembunyikan LABEL, DESKRIPSI, DAN TEKS TAMBAHAN pada komponen */
 div[data-testid="stMarkdownContainer"] > p,
 div[data-testid="stFileUploader"] small,
 div[data-testid="stFileUploader"] label,
@@ -133,7 +128,7 @@ div[data-testid="stMarkdown"] {
     overflow: hidden !important;
 }
 
-/* Khusus untuk kotak upload: TAMPILKAN HANYA TOMBOLNYA SAJA */
+/* Tampilkan HANYA tombol upload */
 div[data-testid="stFileUploader"] {
     display: block !important;
     visibility: visible !important;
@@ -148,12 +143,6 @@ div[data-testid="stFileUploader"] > div:first-child {
     display: block !important;
     visibility: visible !important;
     height: auto !important;
-}
-
-/* Hilangkan spasi kosong akibat teks yang dihapus */
-div.stBlockBox {
-    margin: 0 !important;
-    padding: 0 !important;
 }
 
 /* ===== KARTU KONTEN UTAMA ===== */
@@ -181,14 +170,10 @@ div.stBlockBox {
     box-shadow: 0 8px 20px rgba(107, 114, 225, 0.2);
 }
 
-/* ===== SEMBUNYIKAN ELEMEN BAWAAAN STREAMLIT ===== */
-#MainMenu, footer, header, .stDeployButton, [data-testid="stHeader"] {
+/* ===== SEMBUNYIKAN ELEMEN BAWAAAN ===== */
+#MainMenu, footer, header, .stDeployButton {
     visibility: hidden !important;
     display: none !important;
-}
-.css-18e3th9, .css-1outpf7 {
-    padding-top: 0 !important;
-    padding-bottom: 0 !important;
 }
 </style>
 """, unsafe_allow_html=True)
@@ -250,7 +235,7 @@ def proses_semua_file(daftar_file):
     return gabung, rekap_kelas, peringkat_sekolah, peringkat_kelas, buat_unduh()
 
 # ======================================
-# INISIALISASI SESI UNTUK TOMBOL NAVIGASI
+# INISIALISASI MENU
 # ======================================
 if 'menu_aktif' not in st.session_state:
     st.session_state.menu_aktif = "Beranda"
@@ -259,45 +244,27 @@ if 'menu_aktif' not in st.session_state:
 # TAMPILAN UTAMA
 # ======================================
 
-# ==== MENU SAMPING - TOTAL BERSIH ====
+# ==== MENU SAMPING ====
 with st.sidebar:
-    # Judul
     st.markdown('<div class="sidebar-title">🏫 Nilai Sekolah</div>', unsafe_allow_html=True)
     
-    # TOMBOL NAVIGASI BERFUNGSI
-    col1, col2, col3, col4 = st.columns(1)
-    with col1:
-        if st.button("📊 Beranda", key="b1"):
-            st.session_state.menu_aktif = "Beranda"
-    with col2:
-        if st.button("📋 Data Nilai", key="b2"):
-            st.session_state.menu_aktif = "Data Nilai"
-    with col3:
-        if st.button("🏆 Peringkat", key="b3"):
-            st.session_state.menu_aktif = "Peringkat"
-    with col4:
-        if st.button("⚙️ Pengaturan", key="b4"):
-            st.session_state.menu_aktif = "Pengaturan"
+    # TOMBOL NAVIGASI (DIPERBAIKI, TANPA EROR)
+    if st.button("📊 Beranda", key="m1"):
+        st.session_state.menu_aktif = "Beranda"
+    if st.button("📋 Data Nilai", key="m2"):
+        st.session_state.menu_aktif = "Data Nilai"
+    if st.button("🏆 Peringkat", key="m3"):
+        st.session_state.menu_aktif = "Peringkat"
+    if st.button("⚙️ Pengaturan", key="m4"):
+        st.session_state.menu_aktif = "Pengaturan"
 
-    # Tandai tombol aktif
-    st.markdown(f"""<script>
-    setTimeout(function(){{
-        let btns = document.querySelectorAll('[data-testid="stSidebar"] button');
-        btns.forEach(b => b.classList.remove('active'));
-        if(btns[0] && '{st.session_state.menu_aktif}' === 'Beranda') btns[0].classList.add('active');
-        if(btns[1] && '{st.session_state.menu_aktif}' === 'Data Nilai') btns[1].classList.add('active');
-        if(btns[2] && '{st.session_state.menu_aktif}' === 'Peringkat') btns[2].classList.add('active');
-        if(btns[3] && '{st.session_state.menu_aktif}' === 'Pengaturan') btns[3].classList.add('active');
-    }}, 100);
-    </script>""", unsafe_allow_html=True)
-    
-    # Garis Pembatas
+    # Garis
     st.markdown('<div class="divider"></div>', unsafe_allow_html=True)
 
-    # Kotak Panduan - HANYA TULISAN PENTING
-    st.markdown('<div class="sidebar-card"><h4>📝 Panduan</h4><span>Format: |No|Nama|...| <br>Nama: 7a.xlsx</span></div>', unsafe_allow_html=True)
+    # Panduan
+    st.markdown('<div class="sidebar-card"><h4>📝 Panduan</h4><span>Format: |No|Nama|...|<br>Nama: 7a.xlsx</span></div>', unsafe_allow_html=True)
 
-    # KOTAK UNGGAH BERKAS - TANPA TEKS BERANTAKAN, HANYA TOMBOL
+    # UPLOAD BERKAS - TETAP ADA, BERSIH
     st.markdown('<div class="sidebar-card"><h4>📤 Unggah Berkas</h4>', unsafe_allow_html=True)
     berkas_masuk = st.file_uploader(
         "", 
@@ -307,7 +274,7 @@ with st.sidebar:
     )
     st.markdown('</div>', unsafe_allow_html=True)
 
-    # Kotak Info
+    # Info
     st.markdown('<div class="sidebar-card"><h4>ℹ️ Info</h4><span>Otomatis hitung rata-rata & peringkat.</span></div>', unsafe_allow_html=True)
 
 # ==== KONTEN UTAMA ====
