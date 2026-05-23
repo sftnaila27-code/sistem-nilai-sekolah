@@ -12,7 +12,7 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# CSS KUSTOM - Desain persis seperti referensi
+# CSS KUSTOM - Navigasi samping diperbaiki & lebih rapi
 st.markdown("""
 <style>
 /* ===== DASAR & WARNA ===== */
@@ -25,6 +25,7 @@ st.markdown("""
     --abu-muda: #F8F9FC;
     --putih: #FFFFFF;
     --teks: #374151;
+    --abu-garis: #E5E7EB;
 }
 
 * {
@@ -36,26 +37,81 @@ st.markdown("""
     color: var(--teks);
 }
 
-/* ===== MENU SAMPING ===== */
+/* ===== MENU SAMPING - DIPERBAIKI & DIRAPIHKAN ===== */
 [data-testid="stSidebar"] {
     background-color: var(--putih);
     background: linear-gradient(180deg, #ffffff 0%, #f8f0fc 100%);
     border-right: 1px solid #f0f0f0;
-    padding: 20px 10px;
+    padding: 25px 15px !important;
 }
 
+/* Judul Utama Sidebar */
 .sidebar-title {
     font-size: 22px;
     font-weight: 700;
     color: var(--ungu-lembut);
-    text-align: center;
-    margin-bottom: 30px;
+    text-align: left;
+    margin-bottom: 35px;
+    padding-left: 10px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
 }
 
-/* ===== KARTU KONTEN ===== */
+/* Item Menu Navigasi */
+.nav-item {
+    padding: 12px 15px;
+    margin: 8px 0;
+    border-radius: 12px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    font-weight: 500;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    color: var(--teks);
+    text-decoration: none;
+    font-size: 15px;
+}
+.nav-item:hover {
+    background-color: rgba(107, 114, 225, 0.1);
+    color: var(--ungu-lembut);
+}
+.nav-item.active {
+    background: linear-gradient(90deg, var(--ungu-lembut) 0%, #8B5CF6 100%);
+    color: white;
+    box-shadow: 0 4px 12px rgba(107, 114, 225, 0.2);
+}
+
+/* Pembatas Garis */
+.divider {
+    height: 1px;
+    background-color: var(--abu-garis);
+    margin: 20px 0;
+}
+
+/* Kotak Konten di Sidebar */
+.sidebar-card {
+    background: var(--putih);
+    padding: 18px;
+    border-radius: 12px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+    margin: 15px 0;
+    border: 1px solid #f3f4f6;
+}
+.sidebar-card h4 {
+    margin: 0 0 10px 0;
+    color: var(--ungu-lembut);
+    font-size: 16px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+/* ===== KARTU KONTEN UTAMA ===== */
 .card {
     background: var(--putih);
-    padding: 20px;
+    padding: 25px;
     border-radius: 16px;
     box-shadow: 0 8px 20px rgba(0,0,0,0.08);
     transition: all 0.3s ease;
@@ -63,7 +119,7 @@ st.markdown("""
     margin-bottom: 20px;
 }
 .card:hover {
-    transform: translateY(-5px);
+    transform: translateY(-3px);
     box-shadow: 0 12px 25px rgba(0,0,0,0.12);
 }
 
@@ -82,6 +138,7 @@ st.markdown("""
     padding: 10px 20px;
     font-weight: 500;
     box-shadow: 0 4px 12px rgba(107, 114, 225, 0.3);
+    width: 100%;
 }
 .stButton>button:hover {
     transform: scale(1.02);
@@ -111,6 +168,7 @@ st.markdown("""
 /* ===== SEMBUNYIKAN ELEMEN BAWAAAN ===== */
 #MainMenu, footer, header {visibility: hidden;}
 .css-18e3th9 {padding-top: 1rem;}
+.stFileUploader {margin-top: 8px;}
 </style>
 """, unsafe_allow_html=True)
 
@@ -176,21 +234,45 @@ def proses_semua_file(daftar_file):
 # TAMPILAN UTAMA
 # ======================================
 
-# ==== MENU SAMPING ====
+# ==== MENU SAMPING - DIPERBAIKI & DIRAPIHKAN ====
 with st.sidebar:
+    # Judul
     st.markdown('<div class="sidebar-title">🏫 Nilai Sekolah</div>', unsafe_allow_html=True)
     
-    st.markdown('<div class="card">', unsafe_allow_html=True)
-    st.markdown("#### 📝 Panduan")
+    # Menu Navigasi Utama
+    st.markdown('<div class="nav-item active">📊 Beranda</div>', unsafe_allow_html=True)
+    st.markdown('<div class="nav-item">📋 Data Nilai</div>', unsafe_allow_html=True)
+    st.markdown('<div class="nav-item">🏆 Peringkat</div>', unsafe_allow_html=True)
+    st.markdown('<div class="nav-item">⚙️ Pengaturan</div>', unsafe_allow_html=True)
+    
+    # Garis Pembatas
+    st.markdown('<div class="divider"></div>', unsafe_allow_html=True)
+
+    # Kotak Panduan
+    st.markdown('<div class="sidebar-card">', unsafe_allow_html=True)
+    st.markdown('<h4>📝 Panduan Format</h4>', unsafe_allow_html=True)
     st.markdown("""
-    ✅ Format: `|No|Nama Siswa|...|`
-    ✅ Nama: `7a.xlsx`, `8b.xlsx`
+    ✅ Gunakan format: `|No|Nama Siswa|...|`
+    ✅ Nama file: `7a.xlsx`, `8b.xlsx`
+    ✅ Mendukung file `.xlsx` / `.txt`
     """)
     st.markdown('</div>', unsafe_allow_html=True)
 
-    st.markdown('<div class="card">', unsafe_allow_html=True)
-    st.markdown("#### 📤 Unggah Berkas")
-    berkas_masuk = st.file_uploader("", type=["xlsx", "txt"], accept_multiple_files=True)
+    # Kotak Unggah File - Posisi Rapi
+    st.markdown('<div class="sidebar-card">', unsafe_allow_html=True)
+    st.markdown('<h4>📤 Unggah Berkas</h4>', unsafe_allow_html=True)
+    berkas_masuk = st.file_uploader(
+        "", 
+        type=["xlsx", "txt"], 
+        accept_multiple_files=True,
+        label_visibility="collapsed"
+    )
+    st.markdown('</div>', unsafe_allow_html=True)
+
+    # Kotak Info Tambahan
+    st.markdown('<div class="sidebar-card">', unsafe_allow_html=True)
+    st.markdown('<h4>ℹ️ Informasi</h4>', unsafe_allow_html=True)
+    st.markdown("Sistem otomatis menghitung rata-rata & mengurutkan nilai.")
     st.markdown('</div>', unsafe_allow_html=True)
 
 # ==== KONTEN UTAMA ====
