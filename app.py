@@ -1,4 +1,3 @@
-
 # ==================================================
 #       APLIKASI PENGOLAHAN NILAI SISWA
 #   Dibuat untuk Sekolah - Tanpa Perlu Coding
