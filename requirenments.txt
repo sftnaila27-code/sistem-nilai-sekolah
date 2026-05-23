@@ -1,0 +1,9 @@
+requirenments
+
+
+pandas
+openpyxl
+xlsxwriter
+numpy
+plotly
+streamlit
