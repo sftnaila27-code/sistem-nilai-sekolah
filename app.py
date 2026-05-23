@@ -1,104 +1,118 @@
 import streamlit as st
 import pandas as pd
-import numpy as np
-import plotly.express as px
 from io import BytesIO
 
-# Konfigurasi Dasar
+# KONFIGURASI
 st.set_page_config(page_title="Nilai Sekolah", page_icon="🏫", layout="wide")
 st.markdown("""<style>#MainMenu {visibility: hidden;} footer {visibility: hidden;}</style>""", unsafe_allow_html=True)
 
-# Fungsi Pengolahan
+# PENGOLAHAN DATA
 def proses_data(unggah):
     data = []
-    if not unggah: return None
-    
-    for f in unggah:
-        kelas = f.name.split('.')[0].upper()
+    if not unggah:
+        return None
+
+    for berkas in unggah:
         try:
-            df = pd.read_excel(f)
-            df.columns = ['No','Nama Siswa','No Induk','MTK','B.Indo','B.Inggris','IPA','Rata-Rata']
-            df['KELAS'] = kelas
-            for c in ['MTK','B.Indo','B.Inggris','IPA','Rata-Rata']:
-                df[c] = pd.to_numeric(df[c], errors='coerce')
+            # Ambil nama kelas dari nama file
+            nama_kelas = berkas.name.split('.')[0].upper()
+            # Baca file excel
+            df = pd.read_excel(berkas)
+            # Samakan nama kolom
+            df.columns = ['No', 'Nama Siswa', 'No Induk', 'MTK', 'B.Indo', 'B.Inggris', 'IPA', 'Rata-Rata']
+            # Tambah kolom kelas
+            df['KELAS'] = nama_kelas
+            # Ubah ke angka
+            for kolom in ['MTK', 'B.Indo', 'B.Inggris', 'IPA', 'Rata-Rata']:
+                df[kolom] = pd.to_numeric(df[kolom], errors='coerce')
             data.append(df)
-        except:
-            st.error(f"File {f.name} salah format!")
+        except Exception as e:
+            st.error(f"❌ Salah format file: {berkas.name}")
             return None
 
-    if not data: return None
+    if not data:
+        return None
+
+    # Gabungkan semua
     gabung = pd.concat(data, ignore_index=True)
 
-    # Analisis
+    # 1. Rekap Rata-rata Kelas
     rekap_kelas = gabung.groupby('KELAS')[['MTK','B.Indo','B.Inggris','IPA','Rata-Rata']].mean().round(2).reset_index()
-    rekap_kelas = rekap_kelas.rename(columns={'MTK':'Matematika','B.Indo':'Bahasa Indonesia','B.Inggris':'Bahasa Inggris','Rata-Rata':'Rata-Rata Kelas'})
-    rekap_kelas = rekap_kelas.sort_values('Rata-Rata Kelas', ascending=False)
+    rekap_kelas = rekap_kelas.sort_values('Rata-Rata', ascending=False)
+    rekap_kelas = rekap_kelas.rename(columns={
+        'MTK':'Matematika','B.Indo':'Bahasa Indonesia','B.Inggris':'Bahasa Inggris','Rata-Rata':'Rata-Rata Kelas'
+    })
 
+    # 2. Peringkat Sekolah
     peringkat_sekolah = gabung.sort_values('Rata-Rata', ascending=False).reset_index(drop=True)
-    peringkat_sekolah.insert(0, 'Peringkat', peringkat_sekolah.index+1)
+    peringkat_sekolah.insert(0, 'PERINGKAT', peringkat_sekolah.index + 1)
 
-    gabung['Peringkat Kelas'] = gabung.groupby('KELAS')['Rata-Rata'].rank(ascending=False, method='dense')
-    peringkat_kelas = gabung.sort_values(['KELAS','Peringkat Kelas'])
-
-    rata_mapel = gabung[['MTK','B.Indo','B.Inggris','IPA']].mean().round(2).reset_index()
-    rata_mapel.columns = ['Mapel','Nilai']
-    rata_mapel['Mapel'] = rata_mapel['Mapel'].map({'MTK':'Matematika','B.Indo':'Bahasa Indonesia','B.Inggris':'Bahasa Inggris','IPA':'IPA'})
+    # 3. Peringkat Kelas
+    gabung['PERINGKAT_KELAS'] = gabung.groupby('KELAS')['Rata-Rata'].rank(ascending=False, method='dense')
+    peringkat_kelas = gabung.sort_values(['KELAS', 'PERINGKAT_KELAS'])
 
     # Simpan ke Excel
-    def simpan_excel():
-        o = BytesIO()
-        with pd.ExcelWriter(o) as w:
+    def unduh_excel():
+        keluaran = BytesIO()
+        with pd.ExcelWriter(keluaran, engine='xlsxwriter') as w:
             gabung.to_excel(w, 'Data Lengkap', False)
             rekap_kelas.to_excel(w, 'Rekap Kelas', False)
             peringkat_sekolah.to_excel(w, 'Peringkat Sekolah', False)
             peringkat_kelas.to_excel(w, 'Peringkat Kelas', False)
-        return o.getvalue()
+        return keluaran.getvalue()
 
     return {
-        'rekap_kelas':rekap_kelas,
-        'peringkat_sekolah':peringkat_sekolah,
-        'peringkat_kelas':peringkat_kelas,
-        'rata_mapel':rata_mapel,
-        'file_excel':simpan_excel()
+        'rekap_kelas': rekap_kelas,
+        'peringkat_sekolah': peringkat_sekolah,
+        'peringkat_kelas': peringkat_kelas,
+        'berkas_hasil': unduh_excel()
     }
 
 # TAMPILAN UTAMA
 st.title("🏫 SISTEM PENGOLAHAN NILAI SISWA")
 
+# MENU SAMPING
 with st.sidebar:
-    st.info("**Cara Pakai:**\n1. Siapkan file .xlsx\n2. Nama kolom: No, Nama Siswa, No Induk, MTK, B.Indo, B.Inggris, IPA, Rata-Rata\n3. Nama file: 7a.xlsx, 8b.xlsx, dst")
-    berkas = st.file_uploader("Unggah File", type='xlsx', accept_multiple_files=True)
+    st.header("📝 Cara Pakai")
+    st.info("""
+    1. Siapkan file Excel (.xlsx)
+    2. Nama kolom: No | Nama Siswa | No Induk | MTK | B.Indo | B.Inggris | IPA | Rata-Rata
+    3. Nama file: `7a.xlsx`, `7b.xlsx`, dst
+    4. Unggah file → Lihat hasil → Unduh
+    """)
+    st.header("📤 Unggah File")
+    unggahan = st.file_uploader("Pilih File", type="xlsx", accept_multiple_files=True)
 
-hasil = proses_data(berkas)
+# PROSES
+hasil = proses_data(unggahan)
 
 if not hasil:
-    st.warning("⬅️ Silakan unggah file nilai di menu samping")
-    st.code("Contoh format:\n| No | Nama Siswa | No Induk | MTK | B.Indo | B.Inggris | IPA | Rata-Rata |")
+    st.warning("⬅️ Silakan unggah file nilai terlebih dahulu")
+    st.code("Contoh format isi file:\nNo | Nama Siswa | No Induk | MTK | B.Indo | B.Inggris | IPA | Rata-Rata")
     st.stop()
 
-# Tabs
-t1,t2,t3 = st.tabs(["📊 Grafik","🏫 Rekap Kelas","🏆 Peringkat"])
+# TAMPILAN HASIL
+tab1, tab2, tab3 = st.tabs(["🏫 Rekap Nilai Kelas", "🏆 Peringkat Seluruh Sekolah", "📋 Peringkat Per Kelas"])
 
-with t1:
-    c1,c2 = st.columns(2)
-    with c1:
-        st.subheader("Rata-Rata Kelas")
-        st.plotly_chart(px.bar(hasil['rekap_kelas'], x='KELAS', y='Rata-Rata Kelas', color='KELAS', text_auto='.1f'), use_container_width=True)
-    with c2:
-        st.subheader("Rata-Rata Mata Pelajaran")
-        st.plotly_chart(px.pie(hasil['rata_mapel'], values='Nilai', names='Mapel'), use_container_width=True)
-
-with t2:
-    st.subheader("Tabel Rekapitulasi")
+with tab1:
+    st.subheader("Tabel Rekapitulasi Nilai")
     st.dataframe(hasil['rekap_kelas'], use_container_width=True, hide_index=True)
 
-with t3:
-    pilih = st.radio("Lihat:", ["Seluruh Sekolah","Per Kelas"], horizontal=True)
-    if pilih == "Seluruh Sekolah":
-        st.dataframe(hasil['peringkat_sekolah'], use_container_width=True, hide_index=True)
-    else:
-        kls = st.selectbox("Pilih Kelas", sorted(hasil['peringkat_kelas']['KELAS'].unique()))
-        st.dataframe(hasil['peringkat_kelas'][hasil['peringkat_kelas']['KELAS']==kls], use_container_width=True, hide_index=True)
+with tab2:
+    st.subheader("Daftar Peringkat Siswa Sekolah")
+    st.dataframe(hasil['peringkat_sekolah'], use_container_width=True, hide_index=True)
 
-# Unduh
-st.download_button("📥 Unduh Semua Hasil (.xlsx)", hasil['file_excel'], "Hasil_Nilai_Sekolah.xlsx", use_container_width=True, type='primary')
+with tab3:
+    pilih_kelas = st.selectbox("Pilih Kelas", sorted(hasil['peringkat_kelas']['KELAS'].unique()))
+    tampil = hasil['peringkat_kelas'][hasil['peringkat_kelas']['KELAS'] == pilih_kelas]
+    st.dataframe(tampil, use_container_width=True, hide_index=True)
+
+# TOMBOL UNDUH
+st.download_button(
+    label="📥 Unduh Semua Hasil (Excel)",
+    data=hasil['berkas_hasil'],
+    file_name="HASIL_NILAI_SEKOLAH.xlsx",
+    mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    type="primary",
+    use_container_width=True
+)
