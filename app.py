@@ -1,157 +1,291 @@
 import streamlit as st
 import pandas as pd
-from io import StringIO
+from io import StringIO, BytesIO
 
 # ======================================
-# KONFIGURASI DASAR
+# KONFIGURASI & TEMA TAMPILAN
 # ======================================
-st.set_page_config(page_title="Nilai Sekolah", page_icon="🏫", layout="wide")
-st.markdown("""<style>#MainMenu {visibility: hidden;} footer {visibility: hidden;}</style>""", unsafe_allow_html=True)
+st.set_page_config(
+    page_title="Sistem Nilai Sekolah",
+    page_icon="🏫",
+    layout="wide",
+    initial_sidebar_state="expanded"
+)
+
+# CSS KUSTOM - Desain persis seperti referensi
+st.markdown("""
+<style>
+/* ===== DASAR & WARNA ===== */
+:root {
+    --ungu-lembut: #6B72E1;
+    --biru-lembut: #36C5F0;
+    --pink-lembut: #F06292;
+    --hijau-lembut: #2ECC71;
+    --kuning-lembut: #F1C40F;
+    --abu-muda: #F8F9FC;
+    --putih: #FFFFFF;
+    --teks: #374151;
+}
+
+* {
+    font-family: 'Poppins', sans-serif;
+}
+
+.stApp {
+    background: linear-gradient(135deg, #f5f7fa 0%, #e4e9f2 100%);
+    color: var(--teks);
+}
+
+/* ===== MENU SAMPING ===== */
+[data-testid="stSidebar"] {
+    background-color: var(--putih);
+    background: linear-gradient(180deg, #ffffff 0%, #f8f0fc 100%);
+    border-right: 1px solid #f0f0f0;
+    padding: 20px 10px;
+}
+
+.sidebar-title {
+    font-size: 22px;
+    font-weight: 700;
+    color: var(--ungu-lembut);
+    text-align: center;
+    margin-bottom: 30px;
+}
+
+/* ===== KARTU KONTEN ===== */
+.card {
+    background: var(--putih);
+    padding: 20px;
+    border-radius: 16px;
+    box-shadow: 0 8px 20px rgba(0,0,0,0.08);
+    transition: all 0.3s ease;
+    border: none;
+    margin-bottom: 20px;
+}
+.card:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 12px 25px rgba(0,0,0,0.12);
+}
+
+.card-header {
+    font-size: 18px;
+    font-weight: 600;
+    margin-bottom: 10px;
+}
+
+/* ===== TOMBOL & KOMPONEN ===== */
+.stButton>button {
+    background: linear-gradient(90deg, var(--ungu-lembut) 0%, #8B5CF6 100%);
+    color: white;
+    border-radius: 12px;
+    border: none;
+    padding: 10px 20px;
+    font-weight: 500;
+    box-shadow: 0 4px 12px rgba(107, 114, 225, 0.3);
+}
+.stButton>button:hover {
+    transform: scale(1.02);
+    box-shadow: 0 6px 15px rgba(107, 114, 225, 0.4);
+}
+
+.stDownloadButton>button {
+    background: linear-gradient(90deg, var(--hijau-lembut) 0%, #10B981 100%);
+    color: white;
+    border-radius: 12px;
+    border: none;
+    padding: 10px 20px;
+    font-weight: 500;
+    box-shadow: 0 4px 12px rgba(46, 204, 113, 0.3);
+}
+
+/* ===== HEADER UTAMA ===== */
+.header-banner {
+    background: linear-gradient(90deg, var(--ungu-lembut) 0%, var(--biru-lembut) 100%);
+    color: white;
+    padding: 30px;
+    border-radius: 20px;
+    margin-bottom: 30px;
+    box-shadow: 0 8px 20px rgba(107, 114, 225, 0.2);
+}
+
+/* ===== SEMBUNYIKAN ELEMEN BAWAAAN ===== */
+#MainMenu, footer, header {visibility: hidden;}
+.css-18e3th9 {padding-top: 1rem;}
+</style>
+""", unsafe_allow_html=True)
 
 # ======================================
-# FUNGSI BACA FILE (KHUSUS FORMAT | ANDA)
+# FUNGSI PENGOLAHAN DATA (SESUAI FORMAT ANDA)
 # ======================================
 def baca_file_format_anda(berkas):
     try:
-        # Baca sebagai TEKS BIASA (pasti berhasil)
         isi_teks = berkas.read().decode('utf-8', errors='ignore')
-        
-        # Ubah teks jadi tabel otomatis (karena ada garis |)
         data = pd.read_csv(
             StringIO(isi_teks),
-            sep="|",             # Pemisahnya garis |
-            skipinitialspace=True, # Buang spasi kosong
-            header=0,             # Baris pertama judul kolom
+            sep="|",
+            skipinitialspace=True,
+            header=0,
             engine='python'
         )
-
-        # Bersihkan kolom kosong yang muncul di pinggir
         data = data.dropna(axis=1, how='all')
-        
-        # SAMAKAN NAMA KOLOM PERSIS DENGAN DATA ANDA
         data.columns = ['No', 'Nama Siswa', 'No Induk', 'MTK', 'B.Indo', 'B.Inggris', 'IPA', 'Rata-Rata']
-
-        # Ubah kolom angka jadi bilangan bulat/desimal
+        
         for kol in ['MTK', 'B.Indo', 'B.Inggris', 'IPA', 'Rata-Rata']:
             data[kol] = pd.to_numeric(data[kol], errors='coerce')
-
-        # Ambil nama kelas dari nama file (contoh: 7a.xlsx -> 7A)
+        
         nama_kelas = berkas.name.split('.')[0].upper()
         data['KELAS'] = nama_kelas
-
         return data
-
     except Exception as e:
-        st.error(f"❌ Gagal memproses: {berkas.name}")
-        st.error(f"Detail: {str(e)}")
+        st.error(f"❌ Gagal: {berkas.name} | {str(e)}")
         return None
 
-# ======================================
-# PENGOLAHAN DATA UTAMA
-# ======================================
 def proses_semua_file(daftar_file):
     semua_data = []
-    if not daftar_file:
-        return None
-
-    st.info("⏳ Sedang memuat data...")
-
+    if not daftar_file: return None
+    
     for f in daftar_file:
         hasil = baca_file_format_anda(f)
-        if hasil is None:
-            return None
+        if hasil is None: return None
         semua_data.append(hasil)
-
-    # Gabungkan semua data jadi satu
+    
     gabung = pd.concat(semua_data, ignore_index=True)
-    st.success("✅ Semua data berhasil dibaca!")
-
-    # 1. REKAP NILAI PER KELAS
+    
+    # Analisis
     rekap_kelas = gabung.groupby('KELAS')[['MTK','B.Indo','B.Inggris','IPA','Rata-Rata']].mean().round(2).reset_index()
     rekap_kelas = rekap_kelas.sort_values('Rata-Rata', ascending=False)
-    rekap_kelas = rekap_kelas.rename(columns={
-        'MTK':'Matematika',
-        'B.Indo':'Bahasa Indonesia',
-        'B.Inggris':'Bahasa Inggris',
-        'Rata-Rata':'Rata-Rata Kelas'
-    })
+    rekap_kelas = rekap_kelas.rename(columns={'MTK':'Matematika','B.Indo':'Bahasa Indonesia','B.Inggris':'Bahasa Inggris','Rata-Rata':'Rata-Rata Kelas'})
 
-    # 2. PERINGKAT SELURUH SEKOLAH
     gabung['PERINGKAT SEKOLAH'] = gabung['Rata-Rata'].rank(ascending=False, method='dense').astype(int)
     peringkat_sekolah = gabung.sort_values('PERINGKAT SEKOLAH').reset_index(drop=True)
 
-    # 3. PERINGKAT DI DALAM KELAS
     gabung['PERINGKAT KELAS'] = gabung.groupby('KELAS')['Rata-Rata'].rank(ascending=False, method='dense').astype(int)
-    peringkat_kelas = gabung.sort_values(['KELAS', 'PERINGKAT KELAS'])
+    peringkat_kelas = gabung.sort_values(['KELAS','PERINGKAT KELAS'])
 
-    # 4. BUAT FILE HASIL UNTUK DIUNDUH
-    def buat_file_unduh():
-        from io import BytesIO
+    # Simpan Excel
+    def buat_unduh():
         output = BytesIO()
         with pd.ExcelWriter(output, engine='xlsxwriter') as w:
             gabung.to_excel(w, 'Data Lengkap', False)
             rekap_kelas.to_excel(w, 'Rekap Kelas', False)
-            peringkat_sekolah.to_excel(w, 'Peringkat Sekolah', False)
         return output.getvalue()
 
-    return gabung, rekap_kelas, peringkat_sekolah, peringkat_kelas, buat_file_unduh()
+    return gabung, rekap_kelas, peringkat_sekolah, peringkat_kelas, buat_unduh()
 
 # ======================================
-# TAMPILAN APLIKASI WEB
+# TAMPILAN UTAMA
 # ======================================
-st.title("🏫 SISTEM PENGOLAHAN NILAI SISWA")
-st.markdown("---")
 
-# MENU SAMPING
+# ==== MENU SAMPING ====
 with st.sidebar:
-    st.header("📝 CARA PENGGUNAAN")
-    st.code("""
-    Format File:
-    |No|Nama Siswa|No Induk|MTK|B.Indo|B.Inggris|IPA|Rata-Rata|
-
-    Nama File:
-    7a.xlsx, 7b.xlsx, 8a.xlsx, dst
+    st.markdown('<div class="sidebar-title">🏫 Nilai Sekolah</div>', unsafe_allow_html=True)
+    
+    st.markdown('<div class="card">', unsafe_allow_html=True)
+    st.markdown("#### 📝 Panduan")
+    st.markdown("""
+    ✅ Format: `|No|Nama Siswa|...|`
+    ✅ Nama: `7a.xlsx`, `8b.xlsx`
     """)
-    st.header("📤 UNGGAH FILE")
-    berkas_masuk = st.file_uploader(
-        "Pilih File Anda (.xlsx / .txt)",
-        type=["xlsx", "txt"],
-        accept_multiple_files=True
-    )
+    st.markdown('</div>', unsafe_allow_html=True)
 
-# JALANKAN PROSES
+    st.markdown('<div class="card">', unsafe_allow_html=True)
+    st.markdown("#### 📤 Unggah Berkas")
+    berkas_masuk = st.file_uploader("", type=["xlsx", "txt"], accept_multiple_files=True)
+    st.markdown('</div>', unsafe_allow_html=True)
+
+# ==== KONTEN UTAMA ====
+
+# Banner Atas
+st.markdown("""
+<div class="header-banner">
+    <h1 style="margin:0; font-size:28px;">📊 Sistem Pengolahan Nilai Siswa</h1>
+    <p style="margin:5px 0 0 0; opacity:0.9;">Kelola, hitung, dan rangking nilai dengan tampilan modern & mudah digunakan</p>
+</div>
+""", unsafe_allow_html=True)
+
+# Proses Data
 hasil = proses_semua_file(berkas_masuk)
 
-# TAMPILKAN HASIL
 if hasil:
     data_mentah, rekap, peringkat_s, peringkat_k, file_unduh = hasil
 
-    tab1, tab2, tab3 = st.tabs(["📊 Rekap Nilai Kelas", "🏆 Peringkat Sekolah", "👥 Peringkat Per Kelas"])
+    # Kartu Ringkasan
+    col1, col2, col3, col4 = st.columns(4)
+    with col1:
+        st.markdown('<div class="card"><div class="card-header" style="color:#6B72E1;">👥 Total Siswa</div><h2 style="margin:0;">{}</h2></div>'.format(len(data_mentah)), unsafe_allow_html=True)
+    with col2:
+        st.markdown('<div class="card"><div class="card-header" style="color:#36C5F0;">🏫 Jumlah Kelas</div><h2 style="margin:0;">{}</h2></div>'.format(data_mentah['KELAS'].nunique()), unsafe_allow_html=True)
+    with col3:
+        st.markdown('<div class="card"><div class="card-header" style="color:#2ECC71;">📈 Rata-Rata</div><h2 style="margin:0;">{}</h2></div>'.format(round(data_mentah['Rata-Rata'].mean(),2)), unsafe_allow_html=True)
+    with col4:
+        st.markdown('<div class="card"><div class="card-header" style="color:#F06292;">🏆 Nilai Tertinggi</div><h2 style="margin:0;">{}</h2></div>'.format(data_mentah['Rata-Rata'].max()), unsafe_allow_html=True)
+
+    # Tab Menu
+    tab1, tab2, tab3 = st.tabs(["📊 Rekap Kelas", "🏆 Peringkat Sekolah", "👥 Peringkat Per Kelas"])
 
     with tab1:
-        st.subheader("Tabel Rekapitulasi Nilai Rata-Rata")
+        st.markdown('<div class="card">', unsafe_allow_html=True)
+        st.subheader("📋 Tabel Rekapitulasi Nilai")
         st.dataframe(rekap, use_container_width=True, hide_index=True)
+        st.markdown('</div>', unsafe_allow_html=True)
 
     with tab2:
-        st.subheader("Daftar Urutan Nilai Seluruh Sekolah")
+        st.markdown('<div class="card">', unsafe_allow_html=True)
+        st.subheader("🏅 Daftar Urutan Nilai Seluruh Sekolah")
         st.dataframe(peringkat_s[['PERINGKAT SEKOLAH','KELAS','Nama Siswa','No Induk','MTK','B.Indo','B.Inggris','IPA','Rata-Rata']], use_container_width=True, hide_index=True)
+        st.markdown('</div>', unsafe_allow_html=True)
 
     with tab3:
+        st.markdown('<div class="card">', unsafe_allow_html=True)
         pilih_kelas = st.selectbox("Pilih Kelas", sorted(peringkat_k['KELAS'].unique()))
         tampil = peringkat_k[peringkat_k['KELAS'] == pilih_kelas]
         st.dataframe(tampil[['PERINGKAT KELAS','Nama Siswa','No Induk','MTK','B.Indo','B.Inggris','IPA','Rata-Rata']], use_container_width=True, hide_index=True)
+        st.markdown('</div>', unsafe_allow_html=True)
 
-    # TOMBOL UNDUH
-    st.markdown("---")
+    # Tombol Unduh
+    st.markdown('<div class="card">', unsafe_allow_html=True)
     st.download_button(
-        label="📥 UNDUH HASIL (File Excel)",
+        label="📥 Unduh Semua Hasil ke Excel",
         data=file_unduh,
         file_name="HASIL_OLAH_NILAI_SEKOLAH.xlsx",
         mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-        type="primary",
         use_container_width=True
     )
+    st.markdown('</div>', unsafe_allow_html=True)
 
 else:
-    st.info("⚠️ Silakan unggah file nilai Anda lewat menu di samping ⬅️")
-    st.warning("*Kode ini sudah disesuaikan 100% agar bisa membaca file Anda yang ada garis | nya*")
+    # Tampilan Awal (Kosong tapi indah)
+    st.markdown("""
+    <div class="card" style="text-align:center; padding:50px 20px;">
+        <img src="https://cdn-icons-png.flaticon.com/512/3201/3201355.png" width="150">
+        <h2 style="color:#6B72E1; margin-top:20px;">Selamat Datang di Sistem Nilai</h2>
+        <p style="font-size:16px; max-width:500px; margin:10px auto;">
+            Unggah file nilai Anda lewat menu di samping kiri. 
+            Sistem akan otomatis menghitung rata-rata, membuat peringkat, dan menyajikan data dalam tampilan indah.
+        </p>
+    </div>
+    """, unsafe_allow_html=True)
+
+    # Kartu Fitur
+    col1, col2, col3 = st.columns(3)
+    with col1:
+        st.markdown("""
+        <div class="card" style="text-align:center;">
+            <h3 style="color:#6B72E1;">⚡ Cepat & Akurat</h3>
+            <p>Hitungan otomatis tanpa salah hitung, langsung diproses sekejap.</p>
+        </div>
+        """, unsafe_allow_html=True)
+    with col2:
+        st.markdown("""
+        <div class="card" style="text-align:center;">
+            <h3 style="color:#36C5F0;">📊 Analisis Lengkap</h3>
+            <p>Rekap kelas, peringkat sekolah, dan peringkat di dalam kelas tersedia lengkap.</p>
+        </div>
+        """, unsafe_allow_html=True)
+    with col3:
+        st.markdown("""
+        <div class="card" style="text-align:center;">
+            <h3 style="color:#2ECC71;">📤 Mudah Diunduh</h3>
+            <p>Hasil bisa disimpan kembali ke file Excel untuk arsip sekolah.</p>
+        </div>
+        """, unsafe_allow_html=True)
