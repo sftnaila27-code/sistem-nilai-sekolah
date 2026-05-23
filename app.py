@@ -3,81 +3,92 @@ import pandas as pd
 import re
 from io import BytesIO
 
-# KONFIGURASI
+# ======================================
+# KONFIGURASI DASAR
+# ======================================
 st.set_page_config(page_title="Nilai Sekolah", page_icon="🏫", layout="wide")
 st.markdown("""<style>#MainMenu {visibility: hidden;} footer {visibility: hidden;}</style>""", unsafe_allow_html=True)
 
-# FUNGSI UBAH TEKS MARKDOWN KE TABEL
-def baca_file_format_kamu(berkas):
+# ======================================
+# FUNGSI PEMBACA FILE (KHUSUS FORMAT ANDA)
+# ======================================
+def proses_file(berkas):
     try:
-        # Baca isi file sebagai teks
-        isi = berkas.read().decode('utf-8')
-        baris = isi.strip().split('\n')
+        # Baca isi file sebagai teks murni
+        isi_teks = berkas.read().decode('utf-8', errors='ignore')
+        barisan = isi_teks.strip().split('\n')
         
-        # Cari baris header dan data
-        data_bersih = []
+        data_list = []
         header = None
-        
-        for b in baris:
-            b = b.strip()
-            if not b or '---' in b or '===' in b:
+
+        for baris in barisan:
+            baris = baris.strip()
+            if not baris:
                 continue
-            # Ambil bagian dalam tanda |
-            potong = [kolom.strip() for kolom in b.split('|') if kolom.strip()]
             
-            if len(potong) >= 8: # Pastikan ada 8 kolom
+            # Hanya ambil baris yang ada tanda | pemisah
+            if baris.startswith('|') and baris.endswith('|'):
+                # Bersihkan dan potong per kolom
+                kolom = [x.strip() for x in baris.split('|') if x.strip()]
+                
+                # Abaikan baris pemisah ---
+                if '---' in baris or len(kolom) < 7:
+                    continue
+
                 if header is None:
-                    header = potong
+                    header = kolom # Ambil judul kolom
                 else:
-                    data_bersih.append(potong)
-        
-        if not header or not data_bersih:
+                    data_list.append(kolom) # Ambil data
+
+        if not header or not data_list:
             return None
-        
-        # Buat DataFrame
-        df = pd.DataFrame(data_bersih, columns=header)
-        
-        # Ubah nama kolom agar seragam
+
+        # Buat Tabel
+        df = pd.DataFrame(data_list, columns=header)
+
+        # SAMAKAN NAMA KOLOM PERSIS DENGAN DATA KAMU
         df.columns = ['No', 'Nama Siswa', 'No Induk', 'MTK', 'B.Indo', 'B.Inggris', 'IPA', 'Rata-Rata']
-        
-        # Ubah ke angka
+
+        # Ubah ke Angka
         kolom_angka = ['MTK', 'B.Indo', 'B.Inggris', 'IPA', 'Rata-Rata']
-        for kolom in kolom_angka:
-            df[kolom] = pd.to_numeric(df[kolom], errors='coerce')
-        
-        # Tambah kolom kelas dari nama file
+        for k in kolom_angka:
+            df[k] = pd.to_numeric(df[k], errors='coerce')
+
+        # Tambah Nama Kelas dari Nama File
         nama_kelas = berkas.name.split('.')[0].upper()
         df['KELAS'] = nama_kelas
-        
+
         return df
 
     except Exception as e:
-        st.error(f"❌ Gagal baca: {berkas.name} | Pesan: {str(e)}")
+        st.error(f"❌ Gagal baca: {berkas.name}")
         return None
 
-# FUNGSI PENGOLAHAN UTAMA
-def proses_data(unggah):
-    semua_data = []
-    if not unggah:
+# ======================================
+# PENGOLAHAN UTAMA
+# ======================================
+def olah_semua(unggahan):
+    semua_dataframe = []
+    if not unggahan:
         return None
 
-    for berkas in unggah:
-        df = baca_file_format_kamu(berkas)
-        if df is None:
+    for f in unggahan:
+        hasil_baca = proses_file(f)
+        if hasil_baca is None:
             return None
-        semua_data.append(df)
+        semua_dataframe.append(hasil_baca)
 
-    if not semua_data:
+    if not semua_dataframe:
         return None
 
-    # Gabungkan semua
-    gabung = pd.concat(semua_data, ignore_index=True)
+    # Gabungkan Semua
+    gabung = pd.concat(semua_dataframe, ignore_index=True)
 
-    # 1. Rekap Kelas
+    # 1. Rekap Rata-Rata Kelas
     rekap_kelas = gabung.groupby('KELAS')[['MTK','B.Indo','B.Inggris','IPA','Rata-Rata']].mean().round(2).reset_index()
     rekap_kelas = rekap_kelas.sort_values('Rata-Rata', ascending=False)
     rekap_kelas = rekap_kelas.rename(columns={
-        'MTK':'Matematika','B.Indo':'Bahasa Indonesia','B.Inggris':'Bahasa Inggris','Rata-Rata':'Rata-Rata Kelas'
+        'MTK':'Matematika', 'B.Indo':'Bahasa Indonesia', 'B.Inggris':'Bahasa Inggris', 'Rata-Rata':'Rata-Rata Kelas'
     })
 
     # 2. Peringkat Sekolah
@@ -88,25 +99,25 @@ def proses_data(unggah):
     gabung['PERINGKAT_KELAS'] = gabung.groupby('KELAS')['Rata-Rata'].rank(ascending=False, method='dense')
     peringkat_kelas = gabung.sort_values(['KELAS', 'PERINGKAT_KELAS'])
 
-    # Simpan ke Excel
-    def unduh_excel():
-        keluaran = BytesIO()
-        with pd.ExcelWriter(keluaran, engine='xlsxwriter') as w:
+    # 4. Simpan ke Excel
+    def simpan():
+        out = BytesIO()
+        with pd.ExcelWriter(out, engine='xlsxwriter') as w:
             gabung.to_excel(w, 'Data Lengkap', False)
             rekap_kelas.to_excel(w, 'Rekap Kelas', False)
             peringkat_sekolah.to_excel(w, 'Peringkat Sekolah', False)
             peringkat_kelas.to_excel(w, 'Peringkat Kelas', False)
-        return keluaran.getvalue()
+        return out.getvalue()
 
     return {
-        'rekap_kelas': rekap_kelas,
-        'peringkat_sekolah': peringkat_sekolah,
-        'peringkat_kelas': peringkat_kelas,
-        'berkas_hasil': unduh_excel()
+        'rekap': rekap_kelas,
+        'peringkat_s': peringkat_sekolah,
+        'peringkat_k': peringkat_kelas,
+        'file_hasil': simpan()
     }
 
 # ======================================
-# TAMPILAN APLIKASI
+# TAMPILAN WEB
 # ======================================
 st.title("🏫 SISTEM PENGOLAHAN NILAI SISWA")
 st.markdown("---")
@@ -115,44 +126,46 @@ st.markdown("---")
 with st.sidebar:
     st.header("📝 CARA PAKAI")
     st.success("""
-    ✅ Format file yang diterima:
-    File berisi teks/tabel seperti ini:
+    ✅ **Format File DITERIMA:**
+    File berisi tabel dengan garis | seperti ini:
     |No|Nama Siswa|No Induk|MTK|B.Indo|B.Inggris|IPA|Rata-Rata|
-    
-    ✅ Nama File: `7a.xlsx`, `7b.xlsx`, dst
+
+    ✅ **Nama File:**
+    `7a.xlsx`, `7b.xlsx`, `8a.xlsx`, dst
     """)
     st.header("📤 UNGGAH FILE")
-    unggahan = st.file_uploader("Pilih File", type=["xlsx","txt"], accept_multiple_files=True)
+    masuk = st.file_uploader("Pilih File", type=["xlsx", "txt"], accept_multiple_files=True)
 
 # PROSES
-hasil = proses_data(unggahan)
+data_akhir = olah_semua(masuk)
 
-if not hasil:
-    st.warning("⬅️ Silakan unggah file nilai di menu samping")
-    st.info("Kode ini sudah disesuaikan dengan format file kamu yang asli.")
+if not data_akhir:
+    st.warning("⚠️ Silakan unggah file nilai terlebih dahulu ⬅️")
+    st.info("Kode ini sudah disesuaikan khusus agar bisa membaca format file kamu yang asli.")
     st.stop()
 
 # TAMPILKAN HASIL
-tab1, tab2, tab3 = st.tabs(["🏫 Rekap Nilai Kelas", "🏆 Peringkat Seluruh Sekolah", "📋 Peringkat Per Kelas"])
+tab1, tab2, tab3 = st.tabs(["🏫 Rekap Nilai Kelas", "🏆 Peringkat Sekolah", "👥 Peringkat Per Kelas"])
 
 with tab1:
-    st.subheader("Tabel Rekapitulasi Nilai")
-    st.dataframe(hasil['rekap_kelas'], use_container_width=True, hide_index=True)
+    st.subheader("Tabel Rekapitulasi Nilai Rata-Rata")
+    st.dataframe(data_akhir['rekap'], use_container_width=True, hide_index=True)
 
 with tab2:
-    st.subheader("Daftar Peringkat Siswa Sekolah")
-    st.dataframe(hasil['peringkat_sekolah'], use_container_width=True, hide_index=True)
+    st.subheader("Daftar Urutan Nilai Seluruh Sekolah")
+    st.dataframe(data_akhir['peringkat_s'], use_container_width=True, hide_index=True)
 
 with tab3:
-    pilih_kelas = st.selectbox("Pilih Kelas", sorted(hasil['peringkat_kelas']['KELAS'].unique()))
-    tampil = hasil['peringkat_kelas'][hasil['peringkat_kelas']['KELAS'] == pilih_kelas]
+    pilih = st.selectbox("Pilih Kelas", sorted(data_akhir['peringkat_k']['KELAS'].unique()))
+    tampil = data_akhir['peringkat_k'][data_akhir['peringkat_k']['KELAS'] == pilih]
     st.dataframe(tampil, use_container_width=True, hide_index=True)
 
 # TOMBOL UNDUH
+st.markdown("---")
 st.download_button(
-    label="📥 Unduh Semua Hasil (Excel)",
-    data=hasil['berkas_hasil'],
-    file_name="HASIL_NILAI_SEKOLAH.xlsx",
+    label="📥 UNDUH SEMUA HASIL (Excel)",
+    data=data_akhir['file_hasil'],
+    file_name="HASIL_OLAH_NILAI_SEKOLAH.xlsx",
     mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
     type="primary",
     use_container_width=True
