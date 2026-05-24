@@ -28,47 +28,45 @@ div.stButton > button:hover {background-color: rgba(255,255,255,0.15) !important
 """, unsafe_allow_html=True)
 
 # ======================================
-# FUNGSI BACA DATA - KHUSUS FILE KAMU (SEMUA ISI DI KOLOM A, PISAH | )
+# FUNGSI BACA DATA - TANPA OPENPYXL / KHUSUS FORMAT |
 # ======================================
 def baca_file_kamu(berkas):
     try:
-        # Baca file mentah, SEMUA KOLOM DIANGGAP TEKS
-        df_raw = pd.read_excel(berkas, header=None, dtype=str)
-        
-        # Gabungkan SEMUA isi sel jadi baris teks panjang
-        baris_data = []
-        for _, row in df_raw.iterrows():
-            # Gabungkan semua isi sel dalam satu baris jadi satu kalimat
-            teks_gabung = "|".join(row.dropna().astype(str)).strip()
-            
-            # LEWATKAN JIKA KOSONG ATAU ADA TANDA ---
-            if teks_gabung and "---" not in teks_gabung:
-                # Buang tanda | di awal dan akhir kalau ada
-                teks_gabung = teks_gabung.strip('|')
-                baris_data.append(teks_gabung)
+        # Baca file sebagai teks langsung, jadi TIDAK PERLU openpyxl
+        # Kita baca mentah, potong pakai tanda |
+        isi_file = berkas.getvalue().decode('latin-1', errors='ignore')
+        baris = isi_file.splitlines()
 
-        if len(baris_data) < 2:
-            raise ValueError("Format tidak terbaca atau data kosong")
+        # Bersihkan baris: buang kosong dan pemisah ---
+        baris_bersih = []
+        for b in baris:
+            b = b.strip()
+            if b and "---" not in b:
+                b = b.strip('|') # buang garis pinggir
+                baris_bersih.append(b)
 
-        # Ambil Judul Kolom
-        kolom = [k.strip() for k in baris_data[0].split('|')]
+        if len(baris_bersih) < 2:
+            raise ValueError("Data tidak cukup atau format salah")
+
+        # Ambil kolom
+        kolom = [k.strip() for k in baris_bersih[0].split('|')]
         
-        # Masukkan Isi Data
+        # Ambil isi data
         data_list = []
-        for b in baris_data[1:]:
-            nilai = [n.strip() for n in b.split('|')]
+        for dt in baris_bersih[1:]:
+            nilai = [n.strip() for n in dt.split('|')]
             if len(nilai) == len(kolom):
                 data_list.append(nilai)
 
-        # Buat Tabel
+        # Jadikan tabel
         df = pd.DataFrame(data_list, columns=kolom)
 
-        # Ubah Kolom Angka
-        kolom_angka = ['MTK', 'B.Indo', 'B.Inggris', 'IPA', 'Rata-Rata']
-        for k in kolom_angka:
+        # Ubah ke angka
+        angka_kolom = ['MTK', 'B.Indo', 'B.Inggris', 'IPA', 'Rata-Rata']
+        for k in angka_kolom:
             df[k] = pd.to_numeric(df[k], errors='coerce')
 
-        # Tambah Nama Kelas
+        # Tambah nama kelas
         df['KELAS'] = berkas.name.split('.')[0].upper()
 
         return df
@@ -125,17 +123,17 @@ with st.sidebar:
     if st.button("🏆 Hasil & Peringkat"): st.session_state.menu = "Hasil & Peringkat"
     
     st.markdown("<hr style='margin:20px 0; border-color:rgba(255,255,255,0.1);'>", unsafe_allow_html=True)
-    st.markdown('<p style="color:white; font-weight:600; margin-bottom:8px;">📤 Unggah File (.xlsx)</p>', unsafe_allow_html=True)
-    berkas = st.file_uploader("", type=["xlsx"], accept_multiple_files=True)
+    st.markdown('<p style="color:white; font-weight:600; margin-bottom:8px;">📤 Unggah File (.xlsx / .txt)</p>', unsafe_allow_html=True)
+    berkas = st.file_uploader("", type=["xlsx", "txt"], accept_multiple_files=True)
 
 # HEADER
 st.markdown('<div class="header-top"><h2>🎓 Analisis Pengelompokan Siswa</h2><span>Metode: K-Means</span></div>', unsafe_allow_html=True)
 
-# PROSES UPLOAD (KUNCI UTAMA)
+# PROSES UPLOAD
 if berkas:
     semua = []
     for f in berkas:
-        # PAKAI FUNGSI KHUSUS DI ATAS
+        # Pakai fungsi pembaca khusus kita yang TIDAK BUTUH OPENPYXL
         hasil = baca_file_kamu(f)
         if hasil is not None: 
             semua.append(hasil)
