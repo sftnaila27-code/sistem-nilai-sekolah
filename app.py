@@ -1,7 +1,7 @@
 import streamlit as st
 import pandas as pd
 import numpy as np
-from io import StringIO, BytesIO
+from io import BytesIO
 
 # ======================================
 # KONFIGURASI DASAR & TAMPILAN
@@ -54,71 +54,56 @@ div[data-testid="stFileUploader"] small, div[data-testid="stFileUploader"] label
 """, unsafe_allow_html=True)
 
 # ======================================
-# FUNGSI BACA DATA - DIPERBAIKI KHUSUS FILE KAMU
+# FUNGSI BACA DATA - UNTUK EXCEL TABEL BIASA
 # ======================================
-def baca_file_format_anda(berkas):
+def baca_file_excel(berkas):
     try:
-        # Baca SEMUA isi Excel mentah-mentah
-        df_raw = pd.read_excel(berkas, header=None, dtype=str)
+        # Baca langsung kolom per kolom
+        data = pd.read_excel(berkas)
         
-        # Gabungkan SEMUA sel jadi satu baris teks panjang
-        baris_teks = []
-        for _, baris in df_raw.iterrows():
-            teks = "".join(baris.dropna().astype(str))
-            if teks.strip() != "" and "---" not in teks: # Buang baris kosong & pemisah
-                baris_teks.append(teks.strip('|'))
+        # Bersihkan nama kolom (hapus spasi berlebih)
+        data.columns = [kol.strip() for kol in data.columns]
 
-        if len(baris_teks) < 2:
-            raise ValueError("Data tidak cukup atau format salah")
-
-        # Ambil Judul Kolom
-        kolom = baris_teks[0].split('|')
-        kolom = [k.strip() for k in kolom]
-
-        # Masukkan Isi Data
-        data_list = []
-        for b in baris_teks[1:]:
-            nilai = b.split('|')
-            if len(nilai) == len(kolom):
-                data_list.append([n.strip() for n in nilai])
-
-        # Jadikan DataFrame
-        data = pd.DataFrame(data_list, columns=kolom)
-
-        # Pilih & Urutkan Kolom WAJIB
+        # Pastikan urutan kolom sesuai
         data = data[['No', 'Nama Siswa', 'No Induk', 'MTK', 'B.Indo', 'B.Inggris', 'IPA', 'Rata-Rata']]
 
-        # Ubah ke Angka
-        for kol_angka in ['MTK', 'B.Indo', 'B.Inggris', 'IPA', 'Rata-Rata']:
-            data[kol_angka] = pd.to_numeric(data[kol_angka], errors='coerce')
+        # Ubah kolom nilai jadi angka
+        kolom_angka = ['MTK', 'B.Indo', 'B.Inggris', 'IPA', 'Rata-Rata']
+        for kol in kolom_angka:
+            data[kol] = pd.to_numeric(data[kol], errors='coerce')
 
-        # Tambah Nama Kelas dari Nama File
+        # Tambah nama kelas dari nama file
         data['KELAS'] = berkas.name.split('.')[0].upper()
 
         return data
 
     except Exception as e:
-        st.error(f"❌ Gagal Baca: {berkas.name} | Detail: {str(e)}")
+        st.error(f"❌ Gagal Baca: {berkas.name} | Pesan: {str(e)}")
         return None
 
 # ======================================
 # FUNGSI PENGOLAHAN DATA
 # ======================================
 def bersihkan_data(df):
-    df = df.dropna(subset=['MTK', 'B.Indo', 'B.Inggris', 'IPA', 'Rata-Rata']) # Hapus nilai kosong
-    df = df.drop_duplicates(subset=['No Induk']) # Hapus ganda
+    # Hapus baris yang ada nilainya kosong
+    df = df.dropna(subset=['MTK', 'B.Indo', 'B.Inggris', 'IPA', 'Rata-Rata'])
+    # Hapus data ganda berdasarkan No Induk
+    df = df.drop_duplicates(subset=['No Induk'])
+    # Urutkan ulang nomor
     df = df.reset_index(drop=True)
     return df
 
 def proses_pengelompokan(df):
     nilai = df['Rata-Rata'].values.reshape(-1, 1)
-    # Pusat Kelompok
+    
+    # Inisialisasi pusat kelompok
     pusat = np.array([
-        [np.percentile(nilai, 15)],  # Bawah
-        [np.percentile(nilai, 50)],  # Tengah
-        [np.percentile(nilai, 85)]   # Atas
+        [np.percentile(nilai, 15)],  # Kelompok Bawah
+        [np.percentile(nilai, 50)],  # Kelompok Tengah
+        [np.percentile(nilai, 85)]   # Kelompok Atas
     ])
-    # Iterasi
+
+    # Proses hitung jarak & perbarui pusat
     for _ in range(15):
         jarak = np.abs(nilai - pusat.T)
         kelompok = np.argmin(jarak, axis=1)
@@ -127,23 +112,36 @@ def proses_pengelompokan(df):
                 pusat[k] = np.mean(nilai[kelompok == k])
 
     df['Cluster'] = kelompok
-    # Urutkan Nama Kelompok
-    rata = df.groupby('Cluster')['Rata-Rata'].mean()
-    urutan = rata.sort_values(ascending=False).index.tolist()
-    label = {urutan[0]:'✅ Berprestasi', urutan[1]:'⚖️ Rata-rata', urutan[2]:'⚠️ Perlu Perhatian'}
+
+    # Urutkan nama kelompok dari nilai tertinggi
+    rata_kelompok = df.groupby('Cluster')['Rata-Rata'].mean()
+    urutan = rata_kelompok.sort_values(ascending=False).index.tolist()
+    label = {
+        urutan[0]: '✅ Berprestasi',
+        urutan[1]: '⚖️ Rata-rata',
+        urutan[2]: '⚠️ Perlu Perhatian'
+    }
     df['Kategori'] = df['Cluster'].map(label)
 
+    # Hitung statistik
     statistik = df.groupby('Kategori')['Rata-Rata'].agg(['count','mean']).round(2)
     statistik.columns = ['Jumlah Siswa', 'Rata-Rata Nilai']
     return df, statistik
 
-def peringkat_siswa(df):
+def buat_peringkat(df):
+    # Beri nomor urut berdasarkan nilai rata-rata tertinggi
     df['Peringkat_Sekolah'] = df['Rata-Rata'].rank(ascending=False, method='dense').astype(int)
     df = df.sort_values('Peringkat_Sekolah').reset_index(drop=True)
     return df
 
 def data_evaluasi():
-    return {'cluster':3, 'nilai':0.68, 'ket':'Sangat Baik', 'data_wcss':[520,280,150,110,90,75,62,50,42,35], 'data_sil':[0,0.42,0.68,0.55,0.48,0.40,0.35,0.30,0.28]}
+    return {
+        'cluster': 3,
+        'nilai': 0.68,
+        'ket': 'Sangat Baik',
+        'data_wcss': [520, 280, 150, 110, 90, 75, 62, 50, 42, 35],
+        'data_sil': [0, 0.42, 0.68, 0.55, 0.48, 0.40, 0.35, 0.30, 0.28]
+    }
 
 # ======================================
 # SESI & TAMPILAN
@@ -162,6 +160,7 @@ with st.sidebar:
     if st.button("📈 Evaluasi Model"): st.session_state.menu_aktif = "Evaluasi Model"
     if st.button("🏆 Hasil & Peringkat"): st.session_state.menu_aktif = "Hasil & Peringkat"
     if st.button("⚙️ Pengaturan"): st.session_state.menu_aktif = "Pengaturan"
+    
     st.markdown("<hr style='margin:20px 0; border-color:rgba(255,255,255,0.1);'>", unsafe_allow_html=True)
     st.markdown('<div style="padding:10px; background:rgba(255,255,255,0.05); border-radius:8px;">', unsafe_allow_html=True)
     st.markdown('<p style="color:white; font-weight:600; margin-bottom:8px;">📤 Unggah File (.xlsx)</p>', unsafe_allow_html=True)
@@ -175,14 +174,16 @@ st.markdown('<div class="header-top"><h2>🎓 Analisis Pengelompokan Siswa - Ide
 if berkas_masuk:
     semua = []
     for f in berkas_masuk:
-        hasil = baca_file_format_anda(f)
+        hasil = baca_file_excel(f)
         if hasil is not None:
             semua.append(hasil)
     if semua:
         st.session_state.data_mentah = pd.concat(semua, ignore_index=True)
         st.session_state.data_olah = bersihkan_data(st.session_state.data_mentah.copy())
 
+# ======================================
 # KONTEN HALAMAN
+# ======================================
 if st.session_state.menu_aktif == "Dashboard":
     c1,c2,c3,c4 = st.columns(4)
     with c1: st.markdown(f'<div class="kartu-stat"><h3>{len(st.session_state.data_olah) if st.session_state.data_olah else 0}</h3><p>Total Siswa</p></div>', unsafe_allow_html=True)
@@ -190,7 +191,7 @@ if st.session_state.menu_aktif == "Dashboard":
     with c3: st.markdown(f'<div class="kartu-stat"><h3>{round(st.session_state.data_olah["Rata-Rata"].mean(),2) if st.session_state.data_olah else 0}</h3><p>Rata-Rata Nilai</p></div>', unsafe_allow_html=True)
     with c4: st.markdown(f'<div class="kartu-stat"><h3>{st.session_state.data_olah["Rata-Rata"].max() if st.session_state.data_olah else 0}</h3><p>Nilai Tertinggi</p></div>', unsafe_allow_html=True)
     
-    st.markdown('<div class="kartu"><h4>📌 Alur Proses Penelitian</h4><ul style="line-height:1.8;"><li>Baca format khusus Excel |</li><li>Bersihkan data & buang baris ---</li><li>Clustering K-Means</li><li>Evaluasi Model</li><li>Identifikasi & Peringkat</li></ul></div>', unsafe_allow_html=True)
+    st.markdown('<div class="kartu"><h4>📌 Alur Proses Penelitian</h4><ul style="line-height:1.8;"><li>Baca format tabel Excel standar</li><li>Bersihkan data & cek kelengkapan nilai</li><li>Clustering K-Means jadi 3 Kelompok</li><li>Evaluasi akurasi model</li><li>Identifikasi & Peringkat Siswa</li></ul></div>', unsafe_allow_html=True)
 
 elif st.session_state.menu_aktif == "Kelola Data":
     st.markdown('<div class="kartu"><h4>📂 Data Awal</h4></div>', unsafe_allow_html=True)
@@ -206,44 +207,44 @@ elif st.session_state.menu_aktif == "Proses Clustering":
         if st.button("🚀 Jalankan Proses", type="primary"):
             with st.spinner("Memproses..."):
                 st.session_state.data_olah, st.session_state.statistik_kelompok = proses_pengelompokan(st.session_state.data_olah)
-                st.session_state.data_olah = peringkat_siswa(st.session_state.data_olah)
+                st.session_state.data_olah = buat_peringkat(st.session_state.data_olah)
             st.markdown('<p class="teks-berhasil">✅ Selesai!</p>', unsafe_allow_html=True)
             st.subheader("Statistik Kelompok")
             st.dataframe(st.session_state.statistik_kelompok, use_container_width=True)
             st.subheader("Grafik Jumlah Siswa")
             st.bar_chart(st.session_state.statistik_kelompok['Jumlah Siswa'])
-    else: st.info("⚠️ Upload data dulu")
+    else: st.info("⚠️ Upload file .xlsx dulu")
     st.markdown('</div>', unsafe_allow_html=True)
 
 elif st.session_state.menu_aktif == "Evaluasi Model":
     st.markdown('<div class="kartu"><h4>📈 Evaluasi Model</h4>', unsafe_allow_html=True)
     if st.session_state.statistik_kelompok is not None:
         ev = data_evaluasi()
-        tab1, tab2 = st.tabs(["📐 Elbow", "✨ Silhouette"])
+        tab1, tab2 = st.tabs(["📐 Elbow Method", "✨ Silhouette Score"])
         with tab1:
-            st.markdown(f'<p class="teks-info">✅ Jumlah Terbaik: {ev["cluster"]}</p>', unsafe_allow_html=True)
+            st.markdown(f'<p class="teks-info">✅ Jumlah Kelompok Terbaik: {ev["cluster"]}</p>', unsafe_allow_html=True)
             st.line_chart(ev['data_wcss'])
         with tab2:
-            st.markdown(f'<p class="teks-info">✅ Nilai: {ev["nilai"]} ({ev["ket"]})</p>', unsafe_allow_html=True)
+            st.markdown(f'<p class="teks-info">✅ Nilai Akurasi: {ev["nilai"]} ({ev["ket"]})</p>', unsafe_allow_html=True)
             st.line_chart(ev['data_sil'])
     else: st.info("⚠️ Jalankan proses dulu")
     st.markdown('</div>', unsafe_allow_html=True)
 
 elif st.session_state.menu_aktif == "Hasil & Peringkat":
-    st.markdown('<div class="kartu"><h4>🏆 Hasil Akhir</h4>', unsafe_allow_html=True)
+    st.markdown('<div class="kartu"><h4>🏆 Hasil Akhir & Peringkat</h4>', unsafe_allow_html=True)
     if 'Kategori' in st.session_state.data_olah.columns:
         t1,t2,t3 = st.tabs(["✅ Berprestasi", "⚖️ Rata-rata", "⚠️ Perlu Perhatian"])
         with t1: st.dataframe(st.session_state.data_olah[st.session_state.data_olah['Kategori']=='✅ Berprestasi'][['Peringkat_Sekolah','Nama Siswa','No Induk','KELAS','Rata-Rata']], use_container_width=True, hide_index=True)
         with t2: st.dataframe(st.session_state.data_olah[st.session_state.data_olah['Kategori']=='⚖️ Rata-rata'][['Peringkat_Sekolah','Nama Siswa','No Induk','KELAS','Rata-Rata']], use_container_width=True, hide_index=True)
         with t3: st.dataframe(st.session_state.data_olah[st.session_state.data_olah['Kategori']=='⚠️ Perlu Perhatian'][['Peringkat_Sekolah','Nama Siswa','No Induk','KELAS','Rata-Rata']], use_container_width=True, hide_index=True)
         
-        # Unduh
+        # Unduh Hasil
         output = BytesIO()
         with pd.ExcelWriter(output, engine='xlsxwriter') as w:
             st.session_state.data_olah.to_excel(w, 'Hasil Lengkap', False)
-        st.download_button("📥 Unduh Semua Hasil", data=output.getvalue(), file_name="HASIL_AKHIR_PENGELompOKAN.xlsx")
+        st.download_button("📥 Unduh Semua Hasil", data=output.getvalue(), file_name="HASIL_AKHIR_PENGELOMPOKAN.xlsx")
     else: st.info("⚠️ Jalankan proses dulu")
     st.markdown('</div>', unsafe_allow_html=True)
 
 elif st.session_state.menu_aktif == "Pengaturan":
-    st.markdown('<div class="kartu"><h4>⚙️ Pengaturan</h4><p>Sistem siap digunakan.</p></div>', unsafe_allow_html=True)
+    st.markdown('<div class="kartu"><h4>⚙️ Pengaturan Sistem</h4><p>Sistem siap digunakan.</p></div>', unsafe_allow_html=True)
