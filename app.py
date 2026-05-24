@@ -29,73 +29,51 @@ div.stButton > button:hover {background-color: rgba(255,255,255,0.15) !important
 """, unsafe_allow_html=True)
 
 # ======================================
-# FUNGSI BACA DATA - PALING LENGKAP & LUWES
+# FUNGSI BACA DATA - KHUSUS FORMAT KAMU (MARKDOWN | )
 # ======================================
 def baca_file_kamu(berkas):
     try:
-        # Baca file sebagai teks langsung
-        isi_file = berkas.getvalue().decode('latin-1', errors='ignore')
-        baris = isi_file.splitlines()
+        # Baca SEMUA isi file jadi TEKS biasa
+        isi_file = berkas.getvalue().decode('utf-8', errors='ignore')
+        semua_baris = isi_file.splitlines()
 
-        # Bersihkan baris: buang kosong dan pemisah ---
-        baris_bersih = []
-        for b in baris:
-            b = b.strip()
-            if b and "---" not in b:
-                b = b.strip('|')
-                baris_bersih.append(b)
+        # Proses setiap baris
+        data_bersih = []
+        for baris in semua_baris:
+            baris = baris.strip()
+            # Lewati jika kosong atau baris pemisah ---
+            if not baris or "---" in baris:
+                continue
+            # Buang garis | di awal dan akhir
+            baris = baris.strip('|')
+            # Pisahkan jadi kolom
+            kolom_isi = [bagian.strip() for bagian in baris.split('|')]
+            data_bersih.append(kolom_isi)
 
-        if len(baris_bersih) < 2:
-            raise ValueError("Data tidak cukup atau format salah")
+        if len(data_bersih) < 2:
+            raise ValueError("Data kosong atau format salah")
 
-        # Ambil kolom mentah, bersihkan dari titik, titik dua, spasi, dll
-        kolom_mentah = [k.strip().upper().replace('.','').replace(':','').replace('-','') for k in baris_bersih[0].split('|')]
-        
-        # Ambil isi data
-        data_list = []
-        for dt in baris_bersih[1:]:
-            nilai = [n.strip() for n in dt.split('|')]
-            if len(nilai) == len(kolom_mentah):
-                data_list.append(nilai)
+        # Ambil Judul dan Isi
+        judul = data_bersih[0]
+        isi = data_bersih[1:]
 
-        # Jadikan tabel sementara
-        df = pd.DataFrame(data_list, columns=kolom_mentah)
+        # Buat Tabel
+        df = pd.DataFrame(isi, columns=judul)
 
-        # ======================================
-        # FUNGSI CARI KOLOM: Mencari bagian kata saja
-        # ======================================
-        def cari_kolom(daftar_nama, kata_kunci):
-            kata_kunci = kata_kunci.upper()
-            for nama in daftar_nama:
-                if kata_kunci in nama.upper():
-                    return nama
-            raise ValueError(f"Kolom mengandung kata '{kata_kunci}' TIDAK DITEMUKAN. Pastikan nama kolom ada.")
+        # Ubah Nama Kolom jadi Standar (PENTING!)
+        df.columns = ['No', 'Nama Siswa', 'No Induk', 'MTK', 'B.Indo', 'B.Inggris', 'IPA', 'Rata-Rata']
 
-        # Cari SEMUA kolom dengan variasi tulisan yang paling lengkap
-        col_no     = cari_kolom(df.columns, 'NO')       # Bisa: NO, No, No., NO., NOMOR, Urutan
-        col_nama   = cari_kolom(df.columns, 'NAMA')     # Bisa: Nama, NAMA SISWA, Nama Lengkap
-        col_induk  = cari_kolom(df.columns, 'INDUK')   # Bisa: No Induk, Nomor Induk, NIS
-        col_mtk    = cari_kolom(df.columns, 'MTK') or cari_kolom(df.columns, 'MAT') or cari_kolom(df.columns, 'MATEMATIKA')
-        col_bind   = cari_kolom(df.columns, 'INDO') or cari_kolom(df.columns, 'BIND') or cari_kolom(df.columns, 'INDONESIA')
-        col_bing   = cari_kolom(df.columns, 'ING') or cari_kolom(df.columns, 'BING') or cari_kolom(df.columns, 'INGGRIS')
-        col_ipa    = cari_kolom(df.columns, 'IPA')
-        col_rata   = cari_kolom(df.columns, 'RATA') or cari_kolom(df.columns, 'RATA2') or cari_kolom(df.columns, 'RATA-RATA')
+        # Ubah ke Angka
+        df['MTK'] = pd.to_numeric(df['MTK'], errors='coerce')
+        df['B.Indo'] = pd.to_numeric(df['B.Indo'], errors='coerce')
+        df['B.Inggris'] = pd.to_numeric(df['B.Inggris'], errors='coerce')
+        df['IPA'] = pd.to_numeric(df['IPA'], errors='coerce')
+        df['Rata-Rata'] = pd.to_numeric(df['Rata-Rata'], errors='coerce')
 
-        # Susun ulang kolom dengan nama BAKU (biar kode lain aman)
-        df_baru = pd.DataFrame()
-        df_baru['No']         = df[col_no]
-        df_baru['Nama Siswa']= df[col_nama]
-        df_baru['No Induk']   = df[col_induk]
-        df_baru['MTK']        = pd.to_numeric(df[col_mtk], errors='coerce')
-        df_baru['B.Indo']     = pd.to_numeric(df[col_bind], errors='coerce')
-        df_baru['B.Inggris']  = pd.to_numeric(df[col_bing], errors='coerce')
-        df_baru['IPA']        = pd.to_numeric(df[col_ipa], errors='coerce')
-        df_baru['Rata-Rata']  = pd.to_numeric(df[col_rata], errors='coerce')
+        # Tambah Nama Kelas
+        df['KELAS'] = berkas.name.split('.')[0].upper()
 
-        # Tambah nama kelas
-        df_baru['KELAS'] = berkas.name.split('.')[0].upper()
-
-        return df_baru
+        return df
 
     except Exception as e:
         st.error(f"❌ Gagal: {str(e)}")
@@ -217,7 +195,7 @@ elif st.session_state.menu == "Hasil & Peringkat":
         t1,t2,t3 = st.tabs(["✅ Berprestasi", "⚖️ Rata-rata", "⚠️ Perlu Perhatian"])
         with t1: st.dataframe(st.session_state.data_olah[st.session_state.data_olah['Kategori']=='✅ Berprestasi'][['Peringkat_Sekolah','Nama Siswa','No Induk','KELAS','Rata-Rata']], use_container_width=True, hide_index=True)
         with t2: st.dataframe(st.session_state.data_olah[st.session_state.data_olah['Kategori']=='⚖️ Rata-rata'][['Peringkat_Sekolah','Nama Siswa','No Induk','KELAS','Rata-Rata']], use_container_width=True, hide_index=True)
-        with t3: st.dataframe(st.session_state.data_olah[st.session_state.data_olah['Kategori']=='⚠️ Perlu Perhatian'][['Peringkat_Sekolah','Nama Siswa','No Induk','KELAS','Rata-Rata']], use_container_width=True, hide_index=True)
+        with t3: st.dataframe(st.session_state.data_olah[st.session_state.data_olah['Kategori']=='⚠️ Perlu Perhatian'][['Peringkat_Sekolah','Nama Siswa','No Induk','KELAS','Rata-Rata']], use_container_width=True)
         
         # Unduh
         output = BytesIO()
