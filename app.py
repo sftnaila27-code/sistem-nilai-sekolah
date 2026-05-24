@@ -24,16 +24,16 @@ div.stButton > button:hover {background-color: rgba(255,255,255,0.15) !important
 .dataframe th {background-color: var(--abu-muda) !important; color: var(--utama) !important; font-weight: 600 !important;}
 #MainMenu, footer, header {visibility: hidden !important;}
 .teks-berhasil {color: #27AE60; font-weight: 600; font-size: 16px;}
+.teks-gagal {color: #E74C3C; font-weight: 600; font-size: 16px;}
 </style>
 """, unsafe_allow_html=True)
 
 # ======================================
-# FUNGSI BACA DATA - TANPA OPENPYXL / KHUSUS FORMAT |
+# FUNGSI BACA DATA - PALING PINTAR (CARI KOLOM SENDIRI)
 # ======================================
 def baca_file_kamu(berkas):
     try:
-        # Baca file sebagai teks langsung, jadi TIDAK PERLU openpyxl
-        # Kita baca mentah, potong pakai tanda |
+        # Baca file sebagai teks langsung
         isi_file = berkas.getvalue().decode('latin-1', errors='ignore')
         baris = isi_file.splitlines()
 
@@ -42,34 +42,59 @@ def baca_file_kamu(berkas):
         for b in baris:
             b = b.strip()
             if b and "---" not in b:
-                b = b.strip('|') # buang garis pinggir
+                b = b.strip('|')
                 baris_bersih.append(b)
 
         if len(baris_bersih) < 2:
             raise ValueError("Data tidak cukup atau format salah")
 
         # Ambil kolom
-        kolom = [k.strip() for k in baris_bersih[0].split('|')]
+        kolom_mentah = [k.strip().upper() for k in baris_bersih[0].split('|')]
         
         # Ambil isi data
         data_list = []
         for dt in baris_bersih[1:]:
             nilai = [n.strip() for n in dt.split('|')]
-            if len(nilai) == len(kolom):
+            if len(nilai) == len(kolom_mentah):
                 data_list.append(nilai)
 
-        # Jadikan tabel
-        df = pd.DataFrame(data_list, columns=kolom)
+        # Jadikan tabel sementara
+        df = pd.DataFrame(data_list, columns=kolom_mentah)
 
-        # Ubah ke angka
-        angka_kolom = ['MTK', 'B.Indo', 'B.Inggris', 'IPA', 'Rata-Rata']
-        for k in angka_kolom:
-            df[k] = pd.to_numeric(df[k], errors='coerce')
+        # ======================================
+        # BAGIAN PENTING: CARI KOLOM SENDIRI, TIDAK PEDULI TULISANNYA
+        # ======================================
+        def cari_kolom(df, kata_kunci):
+            for nama in df.columns:
+                if kata_kunci in nama.upper():
+                    return nama
+            raise ValueError(f"Kolom untuk '{kata_kunci}' tidak ditemukan")
+
+        # Cari nama kolom apa pun yang mengandung kata kunci ini
+        col_no = cari_kolom(df, 'NO')
+        col_nama = cari_kolom(df, 'NAMA')
+        col_induk = cari_kolom(df, 'INDUK')
+        col_mtk = cari_kolom(df, 'MTK') or cari_kolom(df, 'MAT') or cari_kolom(df, 'MATEMATIKA')
+        col_bind = cari_kolom(df, 'INDO') or cari_kolom(df, 'BIND') or cari_kolom(df, 'BAHASA INDONESIA')
+        col_bing = cari_kolom(df, 'ING') or cari_kolom(df, 'BING') or cari_kolom(df, 'BAHASA INGGRIS')
+        col_ipa = cari_kolom(df, 'IPA')
+        col_rata = cari_kolom(df, 'RATA') or cari_kolom(df, 'RATA-RATA')
+
+        # Susun ulang kolom dengan nama BAKU (biar kode lain aman)
+        df_baru = pd.DataFrame()
+        df_baru['No'] = df[col_no]
+        df_baru['Nama Siswa'] = df[col_nama]
+        df_baru['No Induk'] = df[col_induk]
+        df_baru['MTK'] = pd.to_numeric(df[col_mtk], errors='coerce')
+        df_baru['B.Indo'] = pd.to_numeric(df[col_bind], errors='coerce')
+        df_baru['B.Inggris'] = pd.to_numeric(df[col_bing], errors='coerce')
+        df_baru['IPA'] = pd.to_numeric(df[col_ipa], errors='coerce')
+        df_baru['Rata-Rata'] = pd.to_numeric(df[col_rata], errors='coerce')
 
         # Tambah nama kelas
-        df['KELAS'] = berkas.name.split('.')[0].upper()
+        df_baru['KELAS'] = berkas.name.split('.')[0].upper()
 
-        return df
+        return df_baru
 
     except Exception as e:
         st.error(f"❌ Gagal: {str(e)}")
@@ -116,9 +141,9 @@ if 'statistik' not in st.session_state: st.session_state.statistik = None
 # MENU SAMPING
 with st.sidebar:
     st.markdown('<div class="judul-menu">🎓 Analisis Siswa</div>', unsafe_allow_html=True)
-    if st.button("📊 Dashboard"): st.session_state.menu = "Dashboard"
+    if st.button("📊 Dasbor"): st.session_state.menu = "Dashboard"
     if st.button("📂 Kelola Data"): st.session_state.menu = "Kelola Data"
-    if st.button("🔍 Proses Clustering"): st.session_state.menu = "Proses Clustering"
+    if st.button("🔍 Pengelompokan Proses"): st.session_state.menu = "Proses Clustering"
     if st.button("📈 Evaluasi Model"): st.session_state.menu = "Evaluasi Model"
     if st.button("🏆 Hasil & Peringkat"): st.session_state.menu = "Hasil & Peringkat"
     
@@ -133,7 +158,6 @@ st.markdown('<div class="header-top"><h2>🎓 Analisis Pengelompokan Siswa</h2><
 if berkas:
     semua = []
     for f in berkas:
-        # Pakai fungsi pembaca khusus kita yang TIDAK BUTUH OPENPYXL
         hasil = baca_file_kamu(f)
         if hasil is not None: 
             semua.append(hasil)
