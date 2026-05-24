@@ -185,22 +185,52 @@ div[data-testid="stFileUploader"] label {
 """, unsafe_allow_html=True)
 
 # ======================================
-# FUNGSI PENGOLAHAN DATA (ALUR SESUAI DIAGRAM)
+# FUNGSI PENGOLAHAN DATA (DIPERBAIKI UNTUK FORMAT KAMU)
 # ======================================
 
-# 1. Upload & Load Data
+# 1. Upload & Load Data (DIPERBAIKI: Bisa baca .xlsx & format | )
 def baca_file_format_anda(berkas):
     try:
-        isi_teks = berkas.read().decode('utf-8', errors='ignore')
-        data = pd.read_csv(
-            StringIO(isi_teks),
-            sep="|",
-            skipinitialspace=True,
-            header=0,
-            engine='python'
-        )
-        data = data.dropna(axis=1, how='all')
-        data.columns = ['No', 'Nama Siswa', 'No Induk', 'MTK', 'B.Indo', 'B.Inggris', 'IPA', 'Rata-Rata']
+        # Cek apakah file Excel
+        if berkas.name.endswith('.xlsx') or berkas.name.endswith('.xls'):
+            df = pd.read_excel(berkas, header=None)
+            # Gabungkan semua kolom jadi satu teks, lalu pisahkan pakai |
+            semua_teks = df.apply(lambda baris: '|'.join(baris.dropna().astype(str)), axis=1).tolist()
+            # Buang baris kosong
+            semua_teks = [b for b in semua_teks if b.strip() != "" and '---' not in b]
+            
+            if not semua_teks:
+                raise ValueError("Format isi file tidak terbaca")
+
+            # Jadikan DataFrame
+            baris_kolom = semua_teks[0].strip('|').split('|')
+            data_list = []
+            for baris in semua_teks[1:]:
+                nilai = baris.strip('|').split('|')
+                if len(nilai) == len(baris_kolom):
+                    data_list.append(nilai)
+            
+            data = pd.DataFrame(data_list, columns=baris_kolom)
+
+        # Jika file teks/csv
+        else:
+            isi_teks = berkas.read().decode('utf-8', errors='ignore')
+            # Bersihkan baris pemisah ---
+            baris_bersih = [b for b in isi_teks.split('\n') if b.strip() != "" and '---' not in b]
+            teks_bersih = '\n'.join(baris_bersih)
+            
+            data = pd.read_csv(
+                StringIO(teks_bersih),
+                sep="|",
+                skipinitialspace=True,
+                header=0,
+                engine='python'
+            )
+
+        # Bersihkan nama kolom (buang spasi kosong)
+        data.columns = [kol.strip() for kol in data.columns]
+        # Pilih dan urutkan kolom sesuai standar
+        data = data[['No', 'Nama Siswa', 'No Induk', 'MTK', 'B.Indo', 'B.Inggris', 'IPA', 'Rata-Rata']]
         
         # Ubah ke numerik
         for kol in ['MTK', 'B.Indo', 'B.Inggris', 'IPA', 'Rata-Rata']:
@@ -208,17 +238,19 @@ def baca_file_format_anda(berkas):
         
         nama_kelas = berkas.name.split('.')[0].upper()
         data['KELAS'] = nama_kelas
+
         return data
+
     except Exception as e:
-        st.error(f"❌ Gagal baca file: {berkas.name}")
+        st.error(f"❌ Gagal baca file: {berkas.name} | Pesan: {str(e)}")
         return None
 
 # 2. Data Cleaning & Preprocessing
 def bersihkan_data(df):
-    # Hapus baris kosong
+    # Hapus baris kosong di kolom nilai
     df = df.dropna(subset=['MTK', 'B.Indo', 'B.Inggris', 'IPA', 'Rata-Rata'])
-    # Hapus duplikat
-    df = df.drop_duplicates(subset=['No Induk', 'Nama Siswa'])
+    # Hapus duplikat berdasarkan No Induk
+    df = df.drop_duplicates(subset=['No Induk'])
     # Reset index
     df = df.reset_index(drop=True)
     return df
@@ -321,8 +353,8 @@ with st.sidebar:
 
     # UPLOAD FILE - BERSIH
     st.markdown('<div style="padding:10px; background:rgba(255,255,255,0.05); border-radius:8px;">', unsafe_allow_html=True)
-    st.markdown('<p style="color:white; font-weight:600; margin-bottom:8px;">📤 Unggah Dataset</p>', unsafe_allow_html=True)
-    berkas_masuk = st.file_uploader("", type=["xlsx", "txt"], accept_multiple_files=True, label_visibility="collapsed")
+    st.markdown('<p style="color:white; font-weight:600; margin-bottom:8px;">📤 Unggah Dataset (.xlsx / .txt)</p>', unsafe_allow_html=True)
+    berkas_masuk = st.file_uploader("", type=["xlsx", "xls", "txt", "csv"], accept_multiple_files=True, label_visibility="collapsed")
     st.markdown('</div>', unsafe_allow_html=True)
 
 # ==== HEADER ATAS ====
@@ -364,8 +396,8 @@ if st.session_state.menu_aktif == "Dashboard":
     st.markdown('<div class="kartu"><h4>📌 Alur Proses Penelitian</h4>', unsafe_allow_html=True)
     st.markdown("""
     <ul style="line-height:1.8;">
-        <li><b>Upload & Load Data:</b> Membaca file format pemisah |</li>
-        <li><b>Data Cleaning:</b> Menghapus data kosong, duplikat, dan perbaikan format</li>
+        <li><b>Upload & Load Data:</b> Membaca file Excel/Teks format pemisah |</li>
+        <li><b>Data Cleaning:</b> Menghapus baris pemisah ---, data kosong, duplikat</li>
         <li><b>Preprocessing:</b> Menyiapkan data nilai untuk perhitungan</li>
         <li><b>Clustering K-Means:</b> Mengelompokkan menjadi 3 kelompok berdasarkan kemiripan nilai</li>
         <li><b>Evaluasi Model:</b> Menggunakan metode Elbow & Silhouette Score</li>
