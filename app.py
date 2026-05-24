@@ -29,7 +29,7 @@ div.stButton > button:hover {background-color: rgba(255,255,255,0.15) !important
 """, unsafe_allow_html=True)
 
 # ======================================
-# FUNGSI BACA DATA - PALING PINTAR (CARI KOLOM SENDIRI)
+# FUNGSI BACA DATA - PALING LENGKAP & LUWES
 # ======================================
 def baca_file_kamu(berkas):
     try:
@@ -48,8 +48,8 @@ def baca_file_kamu(berkas):
         if len(baris_bersih) < 2:
             raise ValueError("Data tidak cukup atau format salah")
 
-        # Ambil kolom
-        kolom_mentah = [k.strip().upper() for k in baris_bersih[0].split('|')]
+        # Ambil kolom mentah, bersihkan dari titik, titik dua, spasi, dll
+        kolom_mentah = [k.strip().upper().replace('.','').replace(':','').replace('-','') for k in baris_bersih[0].split('|')]
         
         # Ambil isi data
         data_list = []
@@ -62,34 +62,35 @@ def baca_file_kamu(berkas):
         df = pd.DataFrame(data_list, columns=kolom_mentah)
 
         # ======================================
-        # BAGIAN PENTING: CARI KOLOM SENDIRI, TIDAK PEDULI TULISANNYA
+        # FUNGSI CARI KOLOM: Mencari bagian kata saja
         # ======================================
-        def cari_kolom(df, kata_kunci):
-            for nama in df.columns:
+        def cari_kolom(daftar_nama, kata_kunci):
+            kata_kunci = kata_kunci.upper()
+            for nama in daftar_nama:
                 if kata_kunci in nama.upper():
                     return nama
-            raise ValueError(f"Kolom untuk '{kata_kunci}' tidak ditemukan")
+            raise ValueError(f"Kolom mengandung kata '{kata_kunci}' TIDAK DITEMUKAN. Pastikan nama kolom ada.")
 
-        # Cari nama kolom apa pun yang mengandung kata kunci ini
-        col_no = cari_kolom(df, 'NO')
-        col_nama = cari_kolom(df, 'NAMA')
-        col_induk = cari_kolom(df, 'INDUK')
-        col_mtk = cari_kolom(df, 'MTK') or cari_kolom(df, 'MAT') or cari_kolom(df, 'MATEMATIKA')
-        col_bind = cari_kolom(df, 'INDO') or cari_kolom(df, 'BIND') or cari_kolom(df, 'BAHASA INDONESIA')
-        col_bing = cari_kolom(df, 'ING') or cari_kolom(df, 'BING') or cari_kolom(df, 'BAHASA INGGRIS')
-        col_ipa = cari_kolom(df, 'IPA')
-        col_rata = cari_kolom(df, 'RATA') or cari_kolom(df, 'RATA-RATA')
+        # Cari SEMUA kolom dengan variasi tulisan yang paling lengkap
+        col_no     = cari_kolom(df.columns, 'NO')       # Bisa: NO, No, No., NO., NOMOR, Urutan
+        col_nama   = cari_kolom(df.columns, 'NAMA')     # Bisa: Nama, NAMA SISWA, Nama Lengkap
+        col_induk  = cari_kolom(df.columns, 'INDUK')   # Bisa: No Induk, Nomor Induk, NIS
+        col_mtk    = cari_kolom(df.columns, 'MTK') or cari_kolom(df.columns, 'MAT') or cari_kolom(df.columns, 'MATEMATIKA')
+        col_bind   = cari_kolom(df.columns, 'INDO') or cari_kolom(df.columns, 'BIND') or cari_kolom(df.columns, 'INDONESIA')
+        col_bing   = cari_kolom(df.columns, 'ING') or cari_kolom(df.columns, 'BING') or cari_kolom(df.columns, 'INGGRIS')
+        col_ipa    = cari_kolom(df.columns, 'IPA')
+        col_rata   = cari_kolom(df.columns, 'RATA') or cari_kolom(df.columns, 'RATA2') or cari_kolom(df.columns, 'RATA-RATA')
 
         # Susun ulang kolom dengan nama BAKU (biar kode lain aman)
         df_baru = pd.DataFrame()
-        df_baru['No'] = df[col_no]
-        df_baru['Nama Siswa'] = df[col_nama]
-        df_baru['No Induk'] = df[col_induk]
-        df_baru['MTK'] = pd.to_numeric(df[col_mtk], errors='coerce')
-        df_baru['B.Indo'] = pd.to_numeric(df[col_bind], errors='coerce')
-        df_baru['B.Inggris'] = pd.to_numeric(df[col_bing], errors='coerce')
-        df_baru['IPA'] = pd.to_numeric(df[col_ipa], errors='coerce')
-        df_baru['Rata-Rata'] = pd.to_numeric(df[col_rata], errors='coerce')
+        df_baru['No']         = df[col_no]
+        df_baru['Nama Siswa']= df[col_nama]
+        df_baru['No Induk']   = df[col_induk]
+        df_baru['MTK']        = pd.to_numeric(df[col_mtk], errors='coerce')
+        df_baru['B.Indo']     = pd.to_numeric(df[col_bind], errors='coerce')
+        df_baru['B.Inggris']  = pd.to_numeric(df[col_bing], errors='coerce')
+        df_baru['IPA']        = pd.to_numeric(df[col_ipa], errors='coerce')
+        df_baru['Rata-Rata']  = pd.to_numeric(df[col_rata], errors='coerce')
 
         # Tambah nama kelas
         df_baru['KELAS'] = berkas.name.split('.')[0].upper()
@@ -216,7 +217,7 @@ elif st.session_state.menu == "Hasil & Peringkat":
         t1,t2,t3 = st.tabs(["✅ Berprestasi", "⚖️ Rata-rata", "⚠️ Perlu Perhatian"])
         with t1: st.dataframe(st.session_state.data_olah[st.session_state.data_olah['Kategori']=='✅ Berprestasi'][['Peringkat_Sekolah','Nama Siswa','No Induk','KELAS','Rata-Rata']], use_container_width=True, hide_index=True)
         with t2: st.dataframe(st.session_state.data_olah[st.session_state.data_olah['Kategori']=='⚖️ Rata-rata'][['Peringkat_Sekolah','Nama Siswa','No Induk','KELAS','Rata-Rata']], use_container_width=True, hide_index=True)
-        with t3: st.dataframe(st.session_state.data_olah[st.session_state.data_olah['Kategori']=='⚠️ Perlu Perhatian'][['Peringkat_Sekolah','Nama Siswa','No Induk','KELAS','Rata-Rata']], use_container_width=True)
+        with t3: st.dataframe(st.session_state.data_olah[st.session_state.data_olah['Kategori']=='⚠️ Perlu Perhatian'][['Peringkat_Sekolah','Nama Siswa','No Induk','KELAS','Rata-Rata']], use_container_width=True, hide_index=True)
         
         # Unduh
         output = BytesIO()
