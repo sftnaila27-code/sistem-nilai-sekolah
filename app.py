@@ -1,414 +1,659 @@
 import streamlit as st
 import pandas as pd
 import numpy as np
-from io import BytesIO
+import matplotlib.pyplot as plt
+import seaborn as sns
+from sklearn.preprocessing import MinMaxScaler
+from sklearn.cluster import KMeans
+from sklearn.metrics import silhouette_score
+from datetime import datetime
 
-# ======================================
-# KONFIGURASI & TAMPILAN
-# ======================================
-st.set_page_config(page_title="Analisis Siswa", layout="wide")
-
+# ======================== KONFIGURASI AWAL ========================
+st.set_page_config(
+    page_title="Sistem Clustering Siswa Berprestasi",
+    page_icon="🎓",
+    layout="wide",
+    initial_sidebar_state="expanded"
+)
+# ======================== CUSTOM CSS ========================
 st.markdown("""
 <style>
-:root {--utama: #2C3E50; --aksen: #16A085; --abu-muda: #ECF0F1; --teks: #2C3E50;}
-* {font-family: 'Segoe UI', sans-serif; margin: 0; padding: 0; box-sizing: border-box;}
-body {background-color: #F5F7FA; color: var(--teks);}
-.header-top {background: var(--utama); color: white; padding: 12px 25px; border-radius: 10px; margin-bottom: 20px; display: flex; justify-content: space-between; align-items: center;}
-.judul-menu {font-size: 22px; font-weight: 700; text-align: center; padding: 15px 0; margin-bottom: 30px; border-bottom: 1px solid rgba(255,255,255,0.2);}
-div.stButton > button {width: 100% !important; padding: 12px 15px !important; margin: 5px 0 !important; border-radius: 6px !important; border: none !important; background: transparent !important; color: white !important; font-weight: 500 !important; text-align: left !important;}
-div.stButton > button:hover {background-color: rgba(255,255,255,0.15) !important;}
-.kartu-stat {background: white; padding: 20px; border-radius: 10px; box-shadow: 0 2px 10px rgba(0,0,0,0.05); text-align: center; border-left: 4px solid var(--aksen);}
-.kartu-stat h3 {font-size: 28px; font-weight: 700; color: var(--utama); margin: 0;}
-.kartu {background: white; padding: 25px; border-radius: 10px; box-shadow: 0 2px 10px rgba(0,0,0,0.05); margin-bottom: 20px;}
-.kartu h4 {color: var(--utama); font-weight: 600; margin-bottom: 15px; padding-bottom: 8px; border-bottom: 1px solid #eee;}
-.dataframe th {background-color: var(--abu-muda) !important; color: var(--utama) !important; font-weight: 600 !important;}
-#MainMenu, footer, header {visibility: hidden !important;}
-.teks-berhasil {color: #27AE60; font-weight: 600; font-size: 16px;}
-.teks-gagal {color: #E74C3C; font-weight: 600; font-size: 16px;}
+    /* Warna untuk tombol menu di sidebar */
+    [data-testid="stSidebar"] .stButton button {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%) !important;
+        color: white !important;
+        border: none !important;
+        border-radius: 12px !important;
+        padding: 10px 15px !important;
+        margin: 5px 0 !important;
+        font-weight: 500 !important;
+        text-align: left !important;
+        transition: all 0.3s ease !important;
+    }
+    
+    [data-testid="stSidebar"] .stButton button:hover {
+        background: linear-gradient(135deg, #5a67d8 0%, #6b46a0 100%) !important;
+        transform: translateX(5px) !important;
+        box-shadow: 0 4px 12px rgba(102,126,234,0.4) !important;
+    }
+    
+    /* Warna untuk kotak upload file */
+    [data-testid="stFileUploader"] {
+        background: linear-gradient(135deg, #667eea15 0%, #764ba215 100%);
+        border: 2px dashed #667eea;
+        border-radius: 16px;
+        padding: 20px;
+        margin-bottom: 20px;
+    }
+    
+    [data-testid="stFileUploader"]:hover {
+        background: linear-gradient(135deg, #667eea25 0%, #764ba225 100%);
+        border-color: #764ba2;
+    }
+    
+    [data-testid="stFileUploader"] button {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%) !important;
+        color: white !important;
+        border: none !important;
+    }
+    
+    /* Warna sidebar */
+    [data-testid="stSidebar"] {
+        background: linear-gradient(180deg, #1a1a2e 0%, #16213e 100%);
+    }
+    
+    [data-testid="stSidebar"] * {
+        color: white !important;
+    }
+    
+    /* Warna header menu */
+    [data-testid="stSidebar"] .stMarkdown h3 {
+        color: #a78bfa !important;
+        font-size: 0.85rem !important;
+        margin-top: 20px !important;
+        margin-bottom: 10px !important;
+        border-bottom: 2px solid #a78bfa !important;
+        display: inline-block !important;
+        padding-bottom: 5px !important;
+    }
 </style>
 """, unsafe_allow_html=True)
 
-# ======================================
-# FUNGSI BACA DATA - VERSI PERBAIKAN
-# ======================================
-def baca_file_kamu(berkas):
+# ======================== CUSTOM CSS UNTUK UPLOAD BOX ========================
+st.markdown("""
+<style>
+    /* Warna untuk kotak upload file */
+    [data-testid="stFileUploader"] {
+        background: linear-gradient(135deg, #667eea15 0%, #764ba215 100%);
+        border: 2px dashed #667eea;
+        border-radius: 16px;
+        padding: 20px;
+        margin-bottom: 20px;
+    }
+    
+    [data-testid="stFileUploader"]:hover {
+        background: linear-gradient(135deg, #667eea25 0%, #764ba225 100%);
+        border-color: #764ba2;
+    }
+    
+    /* Warna teks di dalam uploader */
+    [data-testid="stFileUploader"] button {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%) !important;
+        color: white !important;
+        border: none !important;
+    }
+    
+    [data-testid="stFileUploader"] button:hover {
+        transform: translateY(-2px);
+        transition: all 0.3s;
+    }
+</style>
+""", unsafe_allow_html=True)
+
+# ======================== FUNGSI PREPROCESSING ========================
+def data_cleaning(df):
+    df_clean = df.copy()
+    sebelum_duplikat = len(df_clean)
+    df_clean = df_clean.drop_duplicates()
+    
+    kolom_nilai = ['Matematika', 'B Indonesia', 'B Inggris', 'IPA']
+    for col in kolom_nilai:
+        if col in df_clean.columns:
+            df_clean[col] = pd.to_numeric(df_clean[col], errors='coerce')
+            df_clean[col] = df_clean[col].fillna(df_clean[col].median())
+            df_clean[col] = df_clean[col].clip(0, 100)
+    
+    return df_clean, {'duplikat_dihapus': sebelum_duplikat - len(df_clean)}
+
+def seleksi_atribut(df):
+    atribut_target = ['Matematika', 'B Indonesia', 'B Inggris', 'IPA']
+    atribut_ada = [col for col in atribut_target if col in df.columns]
+    
+    identitas = []
+    if 'Nama Siswa' in df.columns:
+        identitas.append('Nama Siswa')
+    if 'Kelas' in df.columns:
+        identitas.append('Kelas')
+    
+    if len(identitas) == 0:
+        df = df.reset_index()
+        df = df.rename(columns={'index': 'ID Siswa'})
+        identitas = ['ID Siswa']
+    
+    return df[identitas + atribut_ada].copy(), atribut_ada
+
+def normalisasi_data(df, atribut):
+    scaler = MinMaxScaler()
+    df_normalized = df.copy()
+    df_normalized[atribut] = scaler.fit_transform(df[atribut])
+    return df_normalized, scaler
+
+def hitung_rata_rata(df, atribut):
+    df['Rata Rata'] = df[atribut].mean(axis=1).round(2)
+    return df
+
+def clustering_kmeans(df, atribut, n_clusters=3):
+    X = df[atribut].values
+    kmeans = KMeans(n_clusters=n_clusters, init='k-means++', 
+                    max_iter=300, n_init=10, random_state=42)
+    clusters = kmeans.fit_predict(X)
+    return clusters, kmeans
+
+def pemetaan_cluster(df, clusters):
+    df_temp = df.copy()
+    df_temp['Cluster_Awal'] = clusters
+    rata_per_cluster = df_temp.groupby('Cluster_Awal')['Rata Rata'].mean().sort_values()
+    
+    if len(rata_per_cluster) >= 3:
+        pemetaan = {
+            rata_per_cluster.index[2]: 1,
+            rata_per_cluster.index[1]: 2,
+            rata_per_cluster.index[0]: 3
+        }
+    else:
+        pemetaan = {i: i+1 for i in range(len(rata_per_cluster))}
+    
+    df['Cluster'] = [pemetaan.get(c, c) for c in clusters]
+    kategori_map = {1: 'Prestasi Tinggi', 2: 'Prestasi Sedang', 3: 'Prestasi Rendah'}
+    df['Kategori'] = df['Cluster'].map(lambda x: kategori_map.get(x, f'Cluster {x}'))
+    return df
+
+def perangkingan_siswa(df):
+    df = df.sort_values(by='Rata Rata', ascending=False).reset_index(drop=True)
+    df['Peringkat'] = df.index + 1
+    return df
+
+def evaluasi_model(X, labels, n_clusters):
+    if n_clusters > 1 and len(set(labels)) > 1:
+        return round(silhouette_score(X, labels), 4)
+    return 0
+
+def hitung_wcss(X, max_k=10):
+    wcss = []
+    k_range = range(1, min(max_k + 1, len(X)) + 1)
+    for k in k_range:
+        kmeans = KMeans(n_clusters=k, init='k-means++', max_iter=300, n_init=10, random_state=42)
+        kmeans.fit(X)
+        wcss.append(kmeans.inertia_)
+    return list(k_range), wcss
+
+# ======================== PROSES UTAMA ========================
+def proses_lengkap(uploaded_file):
+    hasil_proses = {
+        'status': 'success',
+        'messages': [],
+        'data': None,
+        'silhouette_score': 0,
+        'wcss_data': None,
+        'k_range': None,
+        'statistik': {},
+        'atribut': []
+    }
+    
     try:
-        # Cek ekstensi file
-        nama_file = berkas.name.lower()
+        df = pd.read_excel(uploaded_file)
+        df_clean, _ = data_cleaning(df)
+        df_selected, atribut = seleksi_atribut(df_clean)
+        df_selected = hitung_rata_rata(df_selected, atribut)
+        df_normalized, _ = normalisasi_data(df_selected, atribut)
+        clusters, _ = clustering_kmeans(df_normalized, atribut)
+        df_clustered = pemetaan_cluster(df_selected, clusters)
+        df_final = perangkingan_siswa(df_clustered)
         
-        if nama_file.endswith('.xlsx'):
-            # Baca file Excel
-            df = pd.read_excel(berkas)
-            
-        elif nama_file.endswith('.txt'):
-            # Coba baca sebagai CSV dengan berbagai separator
-            isi_file = berkas.getvalue().decode('utf-8', errors='ignore')
-            
-            # Cek apakah format markdown table (dengan |)
-            if '|' in isi_file and '---' in isi_file:
-                # Proses format markdown table
-                semua_baris = isi_file.splitlines()
-                data_bersih = []
-                
-                for baris in semua_baris:
-                    baris = baris.strip()
-                    if not baris or "---" in baris:
-                        continue
-                    baris = baris.strip('|')
-                    kolom_isi = [bagian.strip() for bagian in baris.split('|')]
-                    if len(kolom_isi) > 1:  # Hanya ambil baris yang punya data
-                        data_bersih.append(kolom_isi)
-                
-                if len(data_bersih) >= 2:
-                    judul = data_bersih[0]
-                    isi_data = data_bersih[1:]
-                    df = pd.DataFrame(isi_data, columns=judul)
-                else:
-                    raise ValueError("Format markdown table tidak valid")
-            else:
-                # Coba baca sebagai CSV dengan berbagai separator
-                try:
-                    df = pd.read_csv(BytesIO(berkas.getvalue()), sep=None, engine='python')
-                except:
-                    # Coba dengan tab separator
-                    df = pd.read_csv(BytesIO(berkas.getvalue()), sep='\t')
-        else:
-            raise ValueError(f"Format file {berkas.name} tidak didukung. Gunakan .xlsx atau .txt")
+        X = df_normalized[atribut].values
+        sil_score = evaluasi_model(X, df_final['Cluster'].values, 3)
+        k_range, wcss = hitung_wcss(X)
         
-        # Bersihkan nama kolom
-        df.columns = df.columns.str.strip()
+        distribusi = {}
+        for kat in df_final['Kategori'].unique():
+            distribusi[kat] = int(df_final[df_final['Kategori'] == kat].shape[0])
         
-        # Deteksi dan mapping kolom yang ada
-        kolom_mapping = {}
-        
-        # Mapping untuk kolom yang mungkin ada
-        mapping_kolom = {
-            'Nama Siswa': ['Nama Siswa', 'Nama', 'NAMA', 'Siswa', 'Nama_Siswa'],
-            'No Induk': ['No Induk', 'NIS', 'NISN', 'ID', 'No_Induk', 'Nomor Induk'],
-            'MTK': ['MTK', 'Matematika', 'Mtk', 'mtk'],
-            'B.Indo': ['B.Indo', 'Bahasa Indonesia', 'Bhs Indo', 'Bindo'],
-            'B.Inggris': ['B.Inggris', 'Bahasa Inggris', 'Bhs Inggris', 'Inggris'],
-            'IPA': ['IPA', 'Ipa', 'Sains']
+        hasil_proses['statistik'] = {
+            'total_siswa': len(df_final),
+            'jumlah_cluster': 3,
+            'silhouette': sil_score,
+            'distribusi': distribusi,
+            'rata_tertinggi': df_final['Rata Rata'].max(),
+            'rata_terendah': df_final['Rata Rata'].min()
         }
         
-        # Cari kolom yang cocok
-        for target, variasi in mapping_kolom.items():
-            for kolom in df.columns:
-                if kolom in variasi or kolom.lower() in [v.lower() for v in variasi]:
-                    kolom_mapping[target] = kolom
-                    break
-        
-        # Buat dataframe baru dengan kolom standar
-        df_baru = pd.DataFrame()
-        df_baru['No'] = range(1, len(df) + 1)
-        
-        # Isi data berdasarkan mapping yang ditemukan
-        if 'Nama Siswa' in kolom_mapping:
-            df_baru['Nama Siswa'] = df[kolom_mapping['Nama Siswa']]
-        else:
-            df_baru['Nama Siswa'] = f"Siswa_{range(1, len(df)+1)}"
-            st.warning("Kolom 'Nama Siswa' tidak ditemukan, menggunakan nama default")
-            
-        if 'No Induk' in kolom_mapping:
-            df_baru['No Induk'] = df[kolom_mapping['No Induk']]
-        else:
-            df_baru['No Induk'] = range(1000, 1000 + len(df))
-            st.warning("Kolom 'No Induk' tidak ditemukan, menggunakan ID default")
-        
-        # Konversi nilai numerik untuk mata pelajaran
-        for mapel in ['MTK', 'B.Indo', 'B.Inggris', 'IPA']:
-            if mapel in kolom_mapping:
-                nilai = pd.to_numeric(df[kolom_mapping[mapel]], errors='coerce')
-                df_baru[mapel] = nilai.fillna(0)
-            else:
-                # Jika kolom tidak ada, cari kemungkinan kolom nilai umum
-                kolom_nilai = [col for col in df.columns if 'nilai' in col.lower() or 'value' in col.lower()]
-                if kolom_nilai and len(kolom_nilai) >= 4:
-                    df_baru[mapel] = pd.to_numeric(df[kolom_nilai[list(['MTK','B.Indo','B.Inggris','IPA']).index(mapel)]], errors='coerce').fillna(0)
-                else:
-                    df_baru[mapel] = 0
-                    st.warning(f"Kolom '{mapel}' tidak ditemukan, menggunakan nilai 0")
-        
-        # Hitung rata-rata
-        df_baru['Rata-Rata'] = df_baru[['MTK', 'B.Indo', 'B.Inggris', 'IPA']].mean(axis=1).round(2)
-        
-        # Tambah Nama Kelas (ambil dari nama file tanpa ekstensi)
-        nama_kelas = berkas.name.split('.')[0].upper()
-        df_baru['KELAS'] = nama_kelas
-        
-        return df_baru
+        hasil_proses['data'] = df_final
+        hasil_proses['atribut'] = atribut
+        hasil_proses['silhouette_score'] = sil_score
+        hasil_proses['wcss_data'] = wcss
+        hasil_proses['k_range'] = k_range
         
     except Exception as e:
-        st.error(f"❌ Gagal membaca file {berkas.name}: {str(e)}")
-        return None
-
-# ======================================
-# FUNGSI PENGOLAHAN
-# ======================================
-def bersihkan_data(df):
-    if df is None or len(df) == 0:
-        return None
+        hasil_proses['status'] = 'error'
+        hasil_proses['messages'].append(str(e))
     
-    # Hapus baris dengan semua nilai 0
-    df = df[~((df[['MTK', 'B.Indo', 'B.Inggris', 'IPA']] == 0).all(axis=1))]
-    
-    # Hapus duplikat berdasarkan No Induk
-    if 'No Induk' in df.columns:
-        df = df.drop_duplicates(subset=['No Induk'], keep='first')
-    
-    return df.reset_index(drop=True)
+    return hasil_proses
 
-def proses_kmeans(df):
-    nilai = df['Rata-Rata'].values.reshape(-1, 1)
-    pusat = np.array([[np.percentile(nilai, 15)], [np.percentile(nilai, 50)], [np.percentile(nilai, 85)]])
-    
-    for _ in range(15):
-        jarak = np.abs(nilai - pusat.T)
-        kelompok = np.argmin(jarak, axis=1)
-        for k in range(3):
-            if np.any(kelompok == k): 
-                pusat[k] = np.mean(nilai[kelompok == k])
+# ======================== INISIALISASI SESSION STATE ========================
+if 'data_terproses' not in st.session_state:
+    st.session_state.data_terproses = None
+if 'hasil_proses' not in st.session_state:
+    st.session_state.hasil_proses = None
+if 'menu_aktif' not in st.session_state:
+    st.session_state.menu_aktif = "Dashboard"
+if 'file_uploaded' not in st.session_state:
+    st.session_state.file_uploaded = False
 
-    df['Cluster'] = kelompok
-    urutan = df.groupby('Cluster')['Rata-Rata'].mean().sort_values(ascending=False).index
-    label = {urutan[0]:'✅ Berprestasi', urutan[1]:'⚖️ Rata-rata', urutan[2]:'⚠️ Perlu Perhatian'}
-    df['Kategori'] = df['Cluster'].map(label)
-
-    statistik = df.groupby('Kategori')['Rata-Rata'].agg(['count','mean']).round(2)
-    statistik.columns = ['Jumlah Siswa', 'Rata-Rata Nilai']
-    return df, statistik
-
-def buat_peringkat(df):
-    df['Peringkat_Sekolah'] = df['Rata-Rata'].rank(ascending=False, method='dense').astype(int)
-    return df.sort_values('Peringkat_Sekolah').reset_index(drop=True)
-
-# ======================================
-# SESI & MENU
-# ======================================
-if 'menu' not in st.session_state: 
-    st.session_state.menu = "Dashboard"
-if 'data_mentah' not in st.session_state: 
-    st.session_state.data_mentah = None
-if 'data_olah' not in st.session_state: 
-    st.session_state.data_olah = None
-if 'statistik' not in st.session_state: 
-    st.session_state.statistik = None
-
-# MENU SAMPING
+# ======================== SIDEBAR ========================
 with st.sidebar:
-    st.markdown('<div class="judul-menu">🎓 Analisis Siswa</div>', unsafe_allow_html=True)
-    if st.button("📊 Dasbor"): 
-        st.session_state.menu = "Dashboard"
-    if st.button("📂 Kelola Data"): 
-        st.session_state.menu = "Kelola Data"
-    if st.button("🔍 Pengelompokan Proses"): 
-        st.session_state.menu = "Proses Clustering"
-    if st.button("📈 Evaluasi Model"): 
-        st.session_state.menu = "Evaluasi Model"
-    if st.button("🏆 Hasil & Peringkat"): 
-        st.session_state.menu = "Hasil & Peringkat"
+    st.markdown("""
+    <div style='text-align: center; padding: 20px 0;'>
+        <div style='font-size: 3rem;'>🎓</div>
+        <div style='font-size: 1.2rem; font-weight: 700; margin-top: 10px;'>EduCluster Pro</div>
+        <div style='font-size: 0.7rem; opacity: 0.7;'>by Sufatun Aila</div>
+    </div>
+    """, unsafe_allow_html=True)
     
-    st.markdown("<hr style='margin:20px 0; border-color:rgba(255,255,255,0.1);'>", unsafe_allow_html=True)
-    st.markdown('<p style="color:white; font-weight:600; margin-bottom:8px;">📤 Unggah File (.xlsx / .txt)</p>', unsafe_allow_html=True)
-    st.markdown('<p style="color:#aaa; font-size:12px; margin-bottom:8px;">Format: Excel atau Text (CSV/Tab/Markdown)</p>', unsafe_allow_html=True)
-    berkas = st.file_uploader("", type=["xlsx", "txt"], accept_multiple_files=True)
-
-# HEADER
-st.markdown('<div class="header-top"><h2>🎓 Analisis Pengelompokan Siswa</h2><span>Metode: K-Means</span></div>', unsafe_allow_html=True)
-
-# PROSES UPLOAD
-if berkas:
-    semua = []
-    progress_bar = st.progress(0)
-    for i, f in enumerate(berkas):
-        hasil = baca_file_kamu(f)
-        if hasil is not None and len(hasil) > 0:
-            semua.append(hasil)
-            st.success(f"✅ Berhasil baca: {f.name} ({len(hasil)} siswa)")
-        else:
-            st.error(f"❌ Gagal baca: {f.name}")
-        progress_bar.progress((i + 1) / len(berkas))
+    st.markdown("---")
     
-    if semua:
-        st.session_state.data_mentah = pd.concat(semua, ignore_index=True)
-        st.session_state.data_olah = bersihkan_data(st.session_state.data_mentah.copy())
-        st.success(f"✅ Total {len(st.session_state.data_olah)} data siap diproses!")
-    else:
-        st.error("❌ Tidak ada file yang berhasil dibaca. Pastikan format file sesuai.")
-else:
-    if st.session_state.data_olah is None:
-        st.info("📁 Silakan upload file Excel (.xlsx) atau Text (.txt) untuk memulai")
-
-# ======================================
-# TAMPILAN HALAMAN
-# ======================================
-if st.session_state.menu == "Dashboard":
-    if st.session_state.data_olah is not None and len(st.session_state.data_olah) > 0:
-        col1, col2, col3, col4 = st.columns(4)
-        with col1: 
-            st.markdown(f'<div class="kartu-stat"><h3>{len(st.session_state.data_olah)}</h3><p>Total Siswa</p></div>', unsafe_allow_html=True)
-        with col2: 
-            st.markdown(f'<div class="kartu-stat"><h3>{st.session_state.data_olah["KELAS"].nunique() if "KELAS" in st.session_state.data_olah.columns else 0}</h3><p>Jumlah Kelas</p></div>', unsafe_allow_html=True)
-        with col3: 
-            st.markdown(f'<div class="kartu-stat"><h3>{round(st.session_state.data_olah["Rata-Rata"].mean(),2)}</h3><p>Rata-Rata Nilai</p></div>', unsafe_allow_html=True)
-        with col4: 
-            st.markdown(f'<div class="kartu-stat"><h3>{st.session_state.data_olah["Rata-Rata"].max()}</h3><p>Nilai Tertinggi</p></div>', unsafe_allow_html=True)
-        
-        # Preview data
-        with st.expander("📊 Preview Data"):
-            st.dataframe(st.session_state.data_olah.head(10), use_container_width=True, hide_index=True)
-    else:
-        st.warning("⚠️ Belum ada data. Silakan upload file terlebih dahulu.")
-
-elif st.session_state.menu == "Kelola Data":
-    col1, col2 = st.columns(2)
+    uploaded_file = st.file_uploader(
+        "📂 Upload Data Siswa",
+        type=['xlsx', 'xls'],
+        help="Format: Matematika, B Indonesia, B Inggris, IPA"
+    )
     
-    with col1:
-        st.markdown('<div class="kartu"><h4>📂 Data Mentah</h4></div>', unsafe_allow_html=True)
-        if st.session_state.data_mentah is not None and len(st.session_state.data_mentah) > 0:
-            st.dataframe(st.session_state.data_mentah, use_container_width=True, hide_index=True)
-            st.caption(f"Total: {len(st.session_state.data_mentah)} baris")
-        else:
-            st.info("Belum ada data mentah")
-    
-    with col2:
-        st.markdown('<div class="kartu"><h4>🧹 Data Bersih</h4></div>', unsafe_allow_html=True)
-        if st.session_state.data_olah is not None and len(st.session_state.data_olah) > 0:
-            st.dataframe(st.session_state.data_olah, use_container_width=True, hide_index=True)
-            st.caption(f"Total: {len(st.session_state.data_olah)} baris (setelah pembersihan)")
-        else:
-            st.info("Belum ada data bersih")
-
-elif st.session_state.menu == "Proses Clustering":
-    st.markdown('<div class="kartu"><h4>🔍 Proses Pengelompokan</h4>', unsafe_allow_html=True)
-    if st.session_state.data_olah is not None and len(st.session_state.data_olah) > 0:
-        if st.button("🚀 Jalankan Proses", type="primary", use_container_width=True):
+    if uploaded_file is not None:
+        if st.button("🚀 Proses Data", use_container_width=True):
             with st.spinner("Memproses data..."):
-                try:
-                    st.session_state.data_olah, st.session_state.statistik = proses_kmeans(st.session_state.data_olah)
-                    st.session_state.data_olah = buat_peringkat(st.session_state.data_olah)
-                    st.success("✅ Proses clustering berhasil!")
-                    
-                    # Tampilkan hasil
-                    st.subheader("📊 Hasil Statistik Kelompok")
-                    st.dataframe(st.session_state.statistik, use_container_width=True)
-                    
-                    st.subheader("📈 Visualisasi Jumlah Siswa per Kelompok")
-                    st.bar_chart(st.session_state.statistik['Jumlah Siswa'])
-                    
-                    # Tampilkan distribusi
-                    st.subheader("📋 Distribusi Siswa")
-                    col1, col2, col3 = st.columns(3)
-                    for idx, (kategori, row) in enumerate(st.session_state.statistik.iterrows()):
-                        with [col1, col2, col3][idx]:
-                            st.metric(kategori, f"{int(row['Jumlah Siswa'])} siswa", f"Rata-rata: {row['Rata-Rata Nilai']}")
-                except Exception as e:
-                    st.error(f"Error saat proses: {str(e)}")
-    else:
-        st.warning("⚠️ Belum ada data. Silakan upload file terlebih dahulu.")
-    st.markdown('</div>', unsafe_allow_html=True)
+                hasil = proses_lengkap(uploaded_file)
+                if hasil['status'] == 'success':
+                    st.session_state.hasil_proses = hasil
+                    st.session_state.data_terproses = hasil['data']
+                    st.session_state.file_uploaded = True
+                    st.success("✅ Proses selesai!")
+                else:
+                    st.error("Error: " + str(hasil['messages']))
+    
+    st.markdown("---")
+    
+    if st.session_state.file_uploaded:
+        st.markdown("### 📋 Menu Navigasi")
+        menu_items = {
+            "🏠 Dashboard": "Dashboard",
+            "📋 Dataset": "Dataset",
+            "⚙️ Preprocessing": "Preprocessing",
+            "📊 Hasil Clustering": "Hasil Clustering",
+            "🏆 Peringkat Siswa": "Hasil Peringkat",
+            "📈 Visualisasi": "Visualisasi",
+            "📐 Evaluasi": "Evaluasi Model",
+            "ℹ️ Tentang": "Tentang"
+        }
+        
+        for label, key in menu_items.items():
+            if st.button(label, use_container_width=True):
+                st.session_state.menu_aktif = key
 
-elif st.session_state.menu == "Evaluasi Model":
-    st.markdown('<div class="kartu"><h4>📈 Evaluasi Model</h4>', unsafe_allow_html=True)
-    if st.session_state.statistik is not None:
-        tab1, tab2 = st.tabs(["📐 Elbow Method", "✨ Silhouette Score"])
-        with tab1:
-            st.markdown("""
-            <div style="padding: 15px; background-color: #f8f9fa; border-radius: 8px; margin-bottom: 15px;">
-            <h5>✅ Optimal Cluster: 3 kelompok</h5>
-            <p>Berdasarkan metode Elbow, jumlah cluster terbaik adalah 3 karena:</p>
-            <ul>
-                <li>Penurunan inertia signifikan hingga k=3</li>
-                <li>Setelah k=3, penurunan mulai landai</li>
-                <li>Mewakili 3 kategori: Berprestasi, Rata-rata, Perlu Perhatian</li>
-            </ul>
+# ======================== MAIN CONTENT ========================
+if not st.session_state.file_uploaded:
+    # Halaman Landing Page
+    st.markdown("""
+    <div style='text-align: center; padding: 60px 20px;'>
+        <div style='font-size: 4rem; margin-bottom: 20px;'>🎓</div>
+        <h1 style='background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); 
+                   -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+                   font-size: 2.5rem; margin-bottom: 1rem;'>
+            EduCluster Pro
+        </h1>
+        <p style='font-size: 1.1rem; color: #6b7280; margin-bottom: 2rem;'>
+            Sistem Clustering Cerdas untuk Identifikasi Siswa Berprestasi
+        </p>
+        <div style='display: flex; justify-content: center; gap: 2rem; flex-wrap: wrap;'>
+            <div style='background: #f3f4f6; padding: 1rem; border-radius: 12px; width: 200px;'>
+                <div style='font-size: 2rem;'>📊</div>
+                <div style='font-weight: 600;'>K-Means</div>
+                <div style='font-size: 0.8rem; color: #6b7280;'>Algoritma Clustering</div>
             </div>
-            """, unsafe_allow_html=True)
-            # Simulasi elbow plot
-            elbow_data = pd.DataFrame({
-                'Jumlah Cluster': range(1, 11),
-                'Inertia': [850, 520, 280, 150, 110, 90, 75, 62, 50, 42]
-            })
-            st.line_chart(elbow_data.set_index('Jumlah Cluster'))
-            
-        with tab2:
-            st.markdown("""
-            <div style="padding: 15px; background-color: #f8f9fa; border-radius: 8px; margin-bottom: 15px;">
-            <h5>✅ Silhouette Score: 0.68</h5>
-            <p>Interpretasi nilai silhouette:</p>
-            <ul>
-                <li>0.71 - 1.00: Struktur cluster sangat baik</li>
-                <li>0.51 - 0.70: Struktur cluster baik</li>
-                <li>0.26 - 0.50: Struktur cluster cukup</li>
-                <li>&lt; 0.25: Struktur cluster lemah</li>
-            </ul>
-            <p><strong>Kesimpulan:</strong> Model memiliki struktur cluster yang baik dengan nilai 0.68.</p>
+            <div style='background: #f3f4f6; padding: 1rem; border-radius: 12px; width: 200px;'>
+                <div style='font-size: 2rem;'>🎯</div>
+                <div style='font-weight: 600;'>3 Cluster</div>
+                <div style='font-size: 0.8rem; color: #6b7280;'>Tinggi, Sedang, Rendah</div>
             </div>
-            """, unsafe_allow_html=True)
-    else:
-        st.info("⚠️ Silakan jalankan proses clustering terlebih dahulu untuk melihat evaluasi model.")
-    st.markdown('</div>', unsafe_allow_html=True)
+            <div style='background: #f3f4f6; padding: 1rem; border-radius: 12px; width: 200px;'>
+                <div style='font-size: 2rem;'>📈</div>
+                <div style='font-weight: 600;'>Evaluasi</div>
+                <div style='font-size: 0.8rem; color: #6b7280;'>Elbow + Silhouette</div>
+            </div>
+        </div>
+        <div style='margin-top: 3rem; padding: 20px; background: linear-gradient(135deg, #667eea15 0%, #764ba215 100%); border-radius: 20px;'>
+            <p style='color: #4b5563;'>📌 Upload file Excel di sidebar untuk memulai analisis</p>
+            <p style='font-size: 0.8rem; color: #9ca3af; margin-top: 0.5rem;'>
+                Format: Kolom Matematika, B Indonesia, B Inggris, IPA
+            </p>
+        </div>
+    </div>
+    """, unsafe_allow_html=True)
 
-elif st.session_state.menu == "Hasil & Peringkat":
-    st.markdown('<div class="kartu"><h4>🏆 Hasil Akhir & Peringkat</h4>', unsafe_allow_html=True)
-    if st.session_state.data_olah is not None and 'Kategori' in st.session_state.data_olah.columns:
-        # Statistik ringkasan
-        col1, col2, col3 = st.columns(3)
+else:
+    df_hasil = st.session_state.data_terproses
+    hasil = st.session_state.hasil_proses
+    atribut = hasil.get('atribut', ['Matematika', 'B Indonesia', 'B Inggris', 'IPA'])
+    
+    warna_map = {'Prestasi Tinggi': '#3B82F6', 'Prestasi Sedang': '#22C55E', 'Prestasi Rendah': '#EF4444'}
+    
+    menu = st.session_state.menu_aktif
+    
+    # Header
+    st.markdown("""
+    <div class='main-header'>
+        <h1>✨ EduCluster Pro ✨</h1>
+        <p>Analisis Pengelompokan Nilai Siswa untuk Identifikasi Siswa Berprestasi dengan Metode K-Means Clustering</p>
+    </div>
+    """, unsafe_allow_html=True)
+    
+    # ======================== DASHBOARD ========================
+    if menu == "Dashboard":
+        # Metric Cards
+        col1, col2, col3, col4 = st.columns(4)
+        
         with col1:
-            st.metric("🏆 Nilai Tertinggi", f"{st.session_state.data_olah['Rata-Rata'].max():.2f}")
+            st.markdown(f"""
+            <div class='metric-card'>
+                <div class='metric-value'>{hasil['statistik']['total_siswa']}</div>
+                <div class='metric-label'>Total Siswa</div>
+            </div>
+            """, unsafe_allow_html=True)
+        
         with col2:
-            st.metric("📊 Nilai Rata-rata", f"{st.session_state.data_olah['Rata-Rata'].mean():.2f}")
+            st.markdown(f"""
+            <div class='metric-card'>
+                <div class='metric-value'>{hasil['statistik']['jumlah_cluster']}</div>
+                <div class='metric-label'>Jumlah Cluster</div>
+            </div>
+            """, unsafe_allow_html=True)
+        
         with col3:
-            st.metric("📋 Total Siswa", len(st.session_state.data_olah))
+            st.markdown(f"""
+            <div class='metric-card'>
+                <div class='metric-value'>{hasil['statistik']['silhouette']}</div>
+                <div class='metric-label'>Silhouette Score</div>
+            </div>
+            """, unsafe_allow_html=True)
         
-        # Tabs untuk setiap kategori
-        tabs = st.tabs(["✅ Berprestasi", "⚖️ Rata-rata", "⚠️ Perlu Perhatian", "📋 Semua Data"])
+        with col4:
+            st.markdown(f"""
+            <div class='metric-card'>
+                <div class='metric-value'>K-Means++</div>
+                <div class='metric-label'>Algoritma</div>
+            </div>
+            """, unsafe_allow_html=True)
         
-        with tabs[0]:
-            prestasi = st.session_state.data_olah[st.session_state.data_olah['Kategori']=='✅ Berprestasi']
-            if len(prestasi) > 0:
-                st.dataframe(prestasi[['Peringkat_Sekolah','Nama Siswa','No Induk','KELAS','Rata-Rata']], 
-                           use_container_width=True, hide_index=True)
-                st.caption(f"Total: {len(prestasi)} siswa berprestasi")
+        st.markdown("---")
+        
+        # Charts Row
+        col_chart1, col_chart2 = st.columns(2)
+        
+        with col_chart1:
+            st.markdown("<div class='card'><div class='card-title'>📊 Distribusi Siswa per Cluster</div>", unsafe_allow_html=True)
+            jumlah_per_kat = df_hasil['Kategori'].value_counts()
+            fig1, ax1 = plt.subplots(figsize=(6, 4))
+            colors = [warna_map.get(k, '#888888') for k in jumlah_per_kat.index]
+            ax1.pie(jumlah_per_kat, labels=jumlah_per_kat.index, colors=colors, autopct='%1.1f%%', startangle=90)
+            ax1.axis('equal')
+            st.pyplot(fig1)
+            st.markdown("</div>", unsafe_allow_html=True)
+        
+        with col_chart2:
+            st.markdown("<div class='card'><div class='card-title'>📈 Rata-rata Nilai per Cluster</div>", unsafe_allow_html=True)
+            rata_kat = df_hasil.groupby('Kategori')['Rata Rata'].mean()
+            fig2, ax2 = plt.subplots(figsize=(6, 4))
+            colors = [warna_map.get(k, '#888888') for k in rata_kat.index]
+            bars = ax2.bar(rata_kat.index, rata_kat.values, color=colors, edgecolor='black')
+            ax2.set_ylim(0, 100)
+            for bar, val in zip(bars, rata_kat.values):
+                ax2.text(bar.get_x() + bar.get_width()/2, bar.get_height() + 1, f'{val:.1f}', ha='center', fontweight='bold')
+            st.pyplot(fig2)
+            st.markdown("</div>", unsafe_allow_html=True)
+        
+        # Data Preview
+        st.markdown("---")
+        st.markdown("<div class='card'><div class='card-title'>📋 Preview Hasil Clustering</div>", unsafe_allow_html=True)
+        
+        kolom_tampil = [col for col in ['Nama Siswa', 'Kelas', 'ID Siswa', 'Rata Rata', 'Kategori'] if col in df_hasil.columns]
+        st.dataframe(df_hasil[kolom_tampil].head(10), use_container_width=True)
+        st.markdown("</div>", unsafe_allow_html=True)
+    
+    # ======================== HASIL CLUSTERING ========================
+    elif menu == "Hasil Clustering":
+        st.markdown("<div class='card'><div class='card-title'>📊 Hasil Pengelompokan Siswa</div>", unsafe_allow_html=True)
+        
+        pilih_kat = st.selectbox("Filter Kategori", ["Semua"] + list(df_hasil['Kategori'].unique()))
+        
+        if pilih_kat != "Semua":
+            df_tampil = df_hasil[df_hasil['Kategori'] == pilih_kat]
+        else:
+            df_tampil = df_hasil
+        
+        kolom_tampil = [col for col in ['Nama Siswa', 'Kelas', 'ID Siswa'] + atribut + ['Rata Rata', 'Kategori'] if col in df_tampil.columns]
+        st.dataframe(df_tampil[kolom_tampil], use_container_width=True)
+        st.markdown("</div>", unsafe_allow_html=True)
+        
+        # Statistik
+        st.markdown("<div class='card'><div class='card-title'>📊 Statistik Tiap Kelompok</div>", unsafe_allow_html=True)
+        statistik = df_hasil.groupby('Kategori')['Rata Rata'].agg(['count', 'mean', 'min', 'max']).round(2)
+        statistik.columns = ['Jumlah', 'Rata-rata', 'Min', 'Max']
+        st.dataframe(statistik, use_container_width=True)
+        st.markdown("</div>", unsafe_allow_html=True)
+    
+    # ======================== HASIL PERINGKAT ========================
+    elif menu == "Hasil Peringkat":
+        st.markdown("<div class='card'><div class='card-title'>🏆 Peringkat Kelas</div>", unsafe_allow_html=True)
+        
+        df_peringkat = df_hasil.sort_values(by='Rata Rata', ascending=False).reset_index(drop=True)
+        df_peringkat['No'] = df_peringkat.index + 1
+        
+        kolom_tampil = [col for col in ['No', 'Nama Siswa', 'Kelas', 'ID Siswa', 'Rata Rata', 'Kategori'] if col in df_peringkat.columns]
+        st.dataframe(df_peringkat[kolom_tampil], use_container_width=True, height=500)
+        st.download_button("📥 Download CSV", df_peringkat.to_csv(index=False), "peringkat_siswa.csv")
+        st.markdown("</div>", unsafe_allow_html=True)
+    
+    # ======================== VISUALISASI ========================
+    elif menu == "Visualisasi":
+        st.markdown("<div class='card'><div class='card-title'>📈 Visualisasi Data</div>", unsafe_allow_html=True)
+        
+        tab1, tab2 = st.tabs(["📊 Perbandingan Mata Pelajaran", "🥧 Distribusi Cluster"])
+        
+        with tab1:
+            rata_mapel = df_hasil.groupby('Kategori')[atribut].mean()
+            fig, ax = plt.subplots(figsize=(10, 5))
+            rata_mapel.T.plot(kind='bar', ax=ax, color=['#3B82F6', '#22C55E', '#EF4444'])
+            ax.set_ylabel("Rata-rata Nilai")
+            ax.set_xlabel("Mata Pelajaran")
+            ax.set_title("Perbandingan Nilai per Kategori Prestasi")
+            ax.legend(title="Kategori", bbox_to_anchor=(1.05, 1))
+            ax.set_ylim(0, 100)
+            plt.tight_layout()
+            st.pyplot(fig)
+        
+        with tab2:
+            jumlah_kat = df_hasil['Kategori'].value_counts()
+            fig2, ax2 = plt.subplots(figsize=(8, 6))
+            colors = [warna_map.get(k, '#888888') for k in jumlah_kat.index]
+            ax2.pie(jumlah_kat, labels=jumlah_kat.index, colors=colors, autopct='%1.1f%%', shadow=True, startangle=90)
+            ax2.axis('equal')
+            st.pyplot(fig2)
+        
+        st.markdown("</div>", unsafe_allow_html=True)
+    
+    # ======================== EVALUASI ========================
+    elif menu == "Evaluasi Model":
+        st.markdown("<div class='card'><div class='card-title'>📐 Evaluasi Model Clustering</div>", unsafe_allow_html=True)
+        
+        # Elbow Method
+        st.subheader("1. Elbow Method")
+        if hasil['wcss_data'] and hasil['k_range']:
+            fig, ax = plt.subplots(figsize=(10, 5))
+            ax.plot(hasil['k_range'], hasil['wcss_data'], 'o-', color='#667eea', linewidth=2, markersize=8)
+            ax.set_xlabel('Jumlah Cluster (K)')
+            ax.set_ylabel('WCSS')
+            ax.set_title('Elbow Method - Penentuan K Optimal')
+            ax.grid(True, alpha=0.3)
+            ax.axvline(x=3, color='red', linestyle='--', label='K=3 (Terpilih)')
+            ax.legend()
+            st.pyplot(fig)
+        
+        # Silhouette Score
+        st.subheader("2. Silhouette Score")
+        sil_score = hasil['statistik']['silhouette']
+        
+        col1, col2 = st.columns([2, 1])
+        with col1:
+            fig2, ax2 = plt.subplots(figsize=(8, 2))
+            warna = '#22C55E' if sil_score >= 0.5 else '#F59E0B' if sil_score >= 0.25 else '#EF4444'
+            ax2.barh(['Score'], [sil_score], color=warna, height=0.4)
+            ax2.set_xlim(-1, 1)
+            ax2.set_xlabel('Silhouette Score')
+            ax2.axvline(x=0.5, color='green', linestyle='--', label='Batas Baik (0.5)')
+            ax2.legend()
+            st.pyplot(fig2)
+        
+        with col2:
+            st.metric("Nilai Silhouette", sil_score)
+            if sil_score >= 0.5:
+                st.success("✅ Kualitas: BAIK")
+            elif sil_score >= 0.25:
+                st.warning("⚠️ Kualitas: CUKUP")
             else:
-                st.info("Tidak ada siswa dalam kategori ini")
+                st.error("❌ Kualitas: BURUK")
         
-        with tabs[1]:
-            rata2 = st.session_state.data_olah[st.session_state.data_olah['Kategori']=='⚖️ Rata-rata']
-            if len(rata2) > 0:
-                st.dataframe(rata2[['Peringkat_Sekolah','Nama Siswa','No Induk','KELAS','Rata-Rata']], 
-                           use_container_width=True, hide_index=True)
-                st.caption(f"Total: {len(rata2)} siswa rata-rata")
+        st.markdown("</div>", unsafe_allow_html=True)
+    
+        # ======================== TENTANG ========================
+    elif menu == "Tentang":
+        st.header("📖 Tentang Aplikasi")
+        
+        st.markdown("""
+        <div style='background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); 
+                    padding: 20px; border-radius: 15px; margin-bottom: 20px;'>
+            <h3 style='color: white; margin: 0;'>Sistem Clustering Siswa Berprestasi</h3>
+            <p style='color: rgba(255,255,255,0.9); margin-top: 10px;'>
+                Aplikasi ini menerapkan <strong>K-Means Clustering</strong> untuk mengelompokkan nilai siswa 
+                guna mengidentifikasi siswa berprestasi secara objektif.
+            </p>
+        </div>
+        """, unsafe_allow_html=True)
+        
+        col1, col2 = st.columns(2)
+        
+        with col1:
+            st.markdown("""
+            <div style='background: #f0f9ff; padding: 15px; border-radius: 12px; border-left: 4px solid #3B82F6; margin-bottom: 15px;'>
+                <h4 style='color: #1E40AF; margin-top: 0;'>📌 Metode yang Digunakan</h4>
+                <ul style='margin-bottom: 0;'>
+                    <li><strong>K-Means Clustering</strong><br><small>Pengelompokan berbasis jarak Euclidean</small></li>
+                    <li><strong>Min-Max Normalization</strong><br><small>Normalisasi data ke rentang 0-1</small></li>
+                    <li><strong>Elbow Method</strong><br><small>Penentuan jumlah cluster optimal</small></li>
+                    <li><strong>Silhouette Coefficient</strong><br><small>Evaluasi kualitas cluster</small></li>
+                </ul>
+            </div>
+            """, unsafe_allow_html=True)
+        
+        with col2:
+            st.markdown("""
+            <div style='background: #f0fdf4; padding: 15px; border-radius: 12px; border-left: 4px solid #22C55E; margin-bottom: 15px;'>
+                <h4 style='color: #166534; margin-top: 0;'>📊 Output yang Dihasilkan</h4>
+                <ul style='margin-bottom: 0;'>
+                    <li><strong>3 Cluster Prestasi</strong><br><small>Tinggi, Sedang, Rendah</small></li>
+                    <li><strong>Peringkat Siswa</strong><br><small>Berdasarkan rata-rata nilai</small></li>
+                    <li><strong>Visualisasi Grafik</strong><br><small>Distribusi dan perbandingan</small></li>
+                    <li><strong>Evaluasi Model</strong><br><small>Elbow Method & Silhouette Score</small></li>
+                </ul>
+            </div>
+            """, unsafe_allow_html=True)
+        
+        st.markdown("""
+        <div style='background: #fef3c7; padding: 15px; border-radius: 12px; border-left: 4px solid #F59E0B; margin-bottom: 15px;'>
+            <h4 style='color: #92400E; margin-top: 0;'>📋 Data yang Digunakan</h4>
+            <p style='margin-bottom: 0;'>
+                Nilai mata pelajaran: <strong>Matematika, Bahasa Indonesia, Bahasa Inggris, IPA</strong>
+            </p>
+        </div>
+        """, unsafe_allow_html=True)
+    
+    # ======================== PREPROCESSING ========================
+    elif menu == "Preprocessing":
+        st.markdown("<div class='card'><div class='card-title'>⚙️ Preprocessing Data</div>", unsafe_allow_html=True)
+        
+        st.subheader("1. Seleksi Atribut")
+        st.markdown(f"""
+        **Atribut yang dipilih untuk clustering:**
+        - Matematika
+        - B Indonesia
+        - B Inggris
+        - IPA
+        """)
+        
+        st.subheader("2. Normalisasi Data (Min-Max)")
+        st.latex(r"X' = \frac{X - X_{min}}{X_{max} - X_{min}}")
+        
+        st.subheader("3. Contoh Hasil Normalisasi")
+        
+        if len(atribut) > 0:
+            sample_data = df_hasil[atribut].head(5)
+            
+            if 'Nama Siswa' in df_hasil.columns:
+                labels = df_hasil['Nama Siswa'].head(5).tolist()
             else:
-                st.info("Tidak ada siswa dalam kategori ini")
+                labels = [f"Siswa {i+1}" for i in range(5)]
+            
+            # Tabel Nilai Asli
+            st.markdown("**Tabel 1: Nilai Asli**")
+            df_tabel1 = sample_data.copy()
+            df_tabel1.insert(0, 'Siswa', labels)
+            st.dataframe(df_tabel1, use_container_width=True)
+            
+            # Tabel Normalisasi
+            st.markdown("**Tabel 2: Nilai Setelah Normalisasi (0-1)**")
+            df_norm = pd.DataFrame()
+            for col in atribut:
+                min_val = df_hasil[col].min()
+                max_val = df_hasil[col].max()
+                if max_val > min_val:
+                    df_norm[col] = (sample_data[col] - min_val) / (max_val - min_val)
+                else:
+                    df_norm[col] = 0.5
+            df_norm.insert(0, 'Siswa', labels)
+            st.dataframe(df_norm.round(4), use_container_width=True)
+            
+            st.success("✅ Normalisasi selesai! Data siap untuk clustering.")
         
-        with tabs[2]:
-            perhatian = st.session_state.data_olah[st.session_state.data_olah['Kategori']=='⚠️ Perlu Perhatian']
-            if len(perhatian) > 0:
-                st.dataframe(perhatian[['Peringkat_Sekolah','Nama Siswa','No Induk','KELAS','Rata-Rata']], 
-                           use_container_width=True, hide_index=True)
-                st.caption(f"Total: {len(perhatian)} siswa perlu perhatian")
-            else:
-                st.info("Tidak ada siswa dalam kategori ini")
-        
-        with tabs[3]:
-            st.dataframe(st.session_state.data_olah[['Peringkat_Sekolah','Nama Siswa','No Induk','KELAS','MTK','B.Indo','B.Inggris','IPA','Rata-Rata','Kategori']], 
-                       use_container_width=True, hide_index=True)
-        
-        # Tombol download
-        output = BytesIO()
-        with pd.ExcelWriter(output, engine='openpyxl') as writer:
-            st.session_state.data_olah.to_excel(writer, sheet_name='Hasil Lengkap', index=False)
-            if st.session_state.statistik is not None:
-                st.session_state.statistik.to_excel(writer, sheet_name='Statistik Kelompok')
-        
-        st.download_button(
-            label="📥 Download Hasil (Excel)",
-            data=output.getvalue(),
-            file_name="HASIL_ANALISIS_SISWA.xlsx",
-            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-            use_container_width=True
-        )
-    else:
-        st.warning("⚠️ Belum ada hasil clustering. Silakan jalankan proses clustering terlebih dahulu.")
-    st.markdown('</div>', unsafe_allow_html=True)
+        st.markdown("</div>", unsafe_allow_html=True)
+    
+    # ======================== DATASET ========================
+    elif menu == "Dataset":
+        st.markdown("<div class='card'><div class='card-title'>📋 Dataset Siswa</div>", unsafe_allow_html=True)
+        st.dataframe(df_hasil, use_container_width=True)
+        st.info(f"Total {df_hasil.shape[0]} baris, {df_hasil.shape[1]} kolom")
+        st.markdown("</div>", unsafe_allow_html=True)
+
+# ======================== FOOTER ========================
+if st.session_state.file_uploaded:
+    st.markdown("""
+    <div class='footer'>
+        © 2026 EduCluster Pro | Sistem Informasi | Universitas Ibrahimy
+    </div>
+    """, unsafe_allow_html=True)

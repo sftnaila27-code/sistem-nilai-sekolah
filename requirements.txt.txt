@@ -1,9 +1,10 @@
 requirements.txt
 
-
-pandas
-openpyxl
-xlsxwriter
-numpy
-plotly
 streamlit
+pandas
+numpy
+matplotlib
+seaborn
+scikit-learn
+openpyxl
+xlrd
